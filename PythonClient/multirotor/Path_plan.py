@@ -52,4 +52,4 @@ client.enableApiControl(False)
 print("Flight path:")
 for pos, orient in flight_path:
     print(f"Position: ({pos.x_val}, {pos.y_val}, {pos.z_val}), Orientation (quaternion): ({orient.x_val}, {orient.y_val}, {orient.z_val}, {orient.w_val})")
-    print(''test)
+    
