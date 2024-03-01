@@ -5,16 +5,18 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>e2049e20-b6dd-474e-8bca-1c8dc54725aa</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>computer_vision\cv_capture.py</StartupFile>
+    <StartupFile>multirotor\Path_plan.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>PythonClient</Name>
     <RootNamespace>PythonClient</RootNamespace>
-    <InterpreterId>Global|ContinuumAnalytics|Anaconda36-64</InterpreterId>
+    <InterpreterId>Global|ContinuumAnalytics|Anaconda38-64</InterpreterId>
     <InterpreterVersion>
     </InterpreterVersion>
+    <SuppressEnvironmentCreationPrompt>True</SuppressEnvironmentCreationPrompt>
+    <TestFramework>Pytest</TestFramework>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -52,6 +54,8 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="computer_vision\setup_path.py" />
+    <Compile Include="multirotor\airsim_collect.py" />
+    <Compile Include="multirotor\airsim_reconstruct.py" />
     <Compile Include="multirotor\drone_lidar.py" />
     <Compile Include="multirotor\gimbal.py" />
     <Compile Include="multirotor\land.py" />
@@ -82,6 +86,7 @@
     <Compile Include="car\reset_test_car.py" />
     <Compile Include="multirotor\opencv_show.py" />
     <Compile Include="computer_vision\cv_mode.py" />
+    <Compile Include="multirotor\Path_plan.py" />
     <Compile Include="multirotor\point_cloud.py" />
     <Compile Include="computer_vision\segmentation.py" />
     <Compile Include="multirotor\box.py" />
@@ -118,6 +123,8 @@
   </ItemGroup>
   <ItemGroup>
     <InterpreterReference Include="Global|ContinuumAnalytics|Anaconda36-64" />
+    <InterpreterReference Include="Global|ContinuumAnalytics|Anaconda38-64" />
+    <InterpreterReference Include="Global|PythonCore|3.8" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
