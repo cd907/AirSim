@@ -57,9 +57,9 @@ for pos, orient in flight_path:
 
 
 # Extracting X, Y, Z coordinates
-x_vals = [pos[0] for pos, _ in flight_path]
-y_vals = [pos[1] for pos, _ in flight_path]
-z_vals = [pos[2] for pos, _ in flight_path]
+x_vals = [pos.x_val for pos, _ in flight_path]
+y_vals = [pos.y_val for pos, _ in flight_path]
+z_vals = [pos.z_val for pos, _ in flight_path]
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
