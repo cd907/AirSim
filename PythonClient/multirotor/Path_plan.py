@@ -1,6 +1,8 @@
 import airsim
 import numpy as np
 import time
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 # Function to check proximity between current position and target waypoint
 def is_close(current, target, threshold=1.0):
@@ -52,4 +54,24 @@ client.enableApiControl(False)
 print("Flight path:")
 for pos, orient in flight_path:
     print(f"Position: ({pos.x_val}, {pos.y_val}, {pos.z_val}), Orientation (quaternion): ({orient.x_val}, {orient.y_val}, {orient.z_val}, {orient.w_val})")
+
+
+# Extracting X, Y, Z coordinates
+x_vals = [pos[0] for pos, _ in flight_path]
+y_vals = [pos[1] for pos, _ in flight_path]
+z_vals = [pos[2] for pos, _ in flight_path]
+
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+
+# Plotting the flight path
+ax.plot(x_vals, y_vals, z_vals, marker='o')
+
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+plt.title('3D Flight Path Visualization')
+
+plt.show()
+
     
