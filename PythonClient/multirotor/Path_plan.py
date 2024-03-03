@@ -8,6 +8,11 @@ from mpl_toolkits.mplot3d import Axes3D
 def is_close(current, target, threshold=1.0):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
+# Function to add Gaussian noise to LiDAR data
+def add_noise(lidar_points, mean=0.0, std_dev=1.0):
+    noise = np.random.normal(mean, std_dev, lidar_points.shape)
+    return lidar_points + noise
+
 # Connect to the AirSim simulator
 client = airsim.MultirotorClient()
 client.confirmConnection()
@@ -34,6 +39,15 @@ for waypoint in waypoints:
 
     # Continuously sample state until the drone is close to the waypoint
     while not is_close(client.simGetVehiclePose().position, waypoint):
+        # Retrieve LiDAR data
+        lidar_data = client.getLidarData()
+        if len(lidar_data.point_cloud) < 3:
+            continue
+        points = np.array(lidar_data.point_cloud, dtype=np.float32).reshape(-1, 3)
+        
+        # Add Gaussian noise to LiDAR data
+        noisy_points = add_noise(points, mean=0.0, std_dev=0.1)  # Adjust mean and std_dev as needed
+
         # Sample state
         state = client.simGetVehiclePose()
         position = state.position
