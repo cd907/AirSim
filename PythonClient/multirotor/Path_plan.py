@@ -9,10 +9,15 @@ from mpl_toolkits.mplot3d import Axes3D
 def is_close(current, target, threshold=1.0):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
-# Function to add Gaussian noise to GPS data
-def add_noise(gps_points, mean=0.0, std_dev=1.0):
-    noise = np.random.normal(mean, std_dev, gps_points.shape)
-    return gps_points + noise
+# Function to add Gaussian noise to position data
+def add_noise(position, mean=0.0, std_dev=1.0):
+    position_array = np.array([position.x_val, position.y_val, position.z_val])
+
+    # Add Gaussian noise
+    noisy_position_array = position_array + np.random.normal(mean, std_dev, position_array.shape)
+    noisy_position_vector3r = airsim.Vector3r(noisy_position_array[0], noisy_position_array[1], noisy_position_array[2])
+
+    return noisy_position_vector3r
 
 class PIDController:
     def __init__(self, kp_val=0.01, ki_val=0.0, kd_val=0.0,
