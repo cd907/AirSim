@@ -45,7 +45,11 @@ waypoints = [
     airsim.Vector3r(0, 10, -10),
     airsim.Vector3r(0, 0, -10)
 ]
+
 flight_path = []
+
+lidar_data_dir = "lidar_data"
+os.makedirs(lidar_data_dir, exist_ok=True)
 
 # Initialize PID controllers for X, Y, Z axes
 pid_x = PIDController()
@@ -86,7 +90,7 @@ for idx, waypoint in enumerate(waypoints):
         points = np.array(lidar_data.point_cloud, dtype=np.float32).reshape(-1, 3)
        
         # Save LiDAR data to a file
-        lidar_filename = os.path.join("lidar_data", f"waypoint_{idx+1}_lidar_data.csv")
+        lidar_filename = os.path.join(lidar_data_dir, f"waypoint_{idx+1}_lidar_data.csv")
         np.savetxt(lidar_filename, points, delimiter=",", fmt='%f', header='x,y,z', comments='')
 
         # Record position and orientation
@@ -101,7 +105,7 @@ for idx, waypoint in enumerate(waypoints):
         control_x = pid_x.update(error_x, dt)
         control_y = pid_y.update(error_y, dt)
        
-       # regulate the velocity in X,Y axis
+       # regulate the velocity in X,Y axis, To BE completed!
         # max(min_value, min(val, max_value))
 
         client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=1)
