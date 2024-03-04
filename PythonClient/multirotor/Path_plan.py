@@ -112,6 +112,7 @@ for idx, waypoint in enumerate(waypoints):
         
         # Sleep for a short duration to avoid excessive sampling
         time.sleep(0.1)
+    print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
 
 # Land
 client.landAsync().join()
