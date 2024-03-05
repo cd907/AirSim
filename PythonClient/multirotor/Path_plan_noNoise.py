@@ -20,7 +20,7 @@ def add_noise(position, mean=0.0, std_dev=1.0):
     return noisy_position_vector3r
 
 class PIDController:
-    def __init__(self, kp_val=0.1, ki_val=0.01, kd_val=0.01,
+    def __init__(self, kp_val=0.01, ki_val=0.0, kd_val=0.0,
                  min_output_val=-1, max_output_val=1):
         self.kp = kp_val
         self.ki = ki_val
@@ -80,16 +80,14 @@ for idx, waypoint in enumerate(waypoints):
         position = state.position
         orientation = state.orientation  # Quaternion
 
-        # Add Gaussian noise to drone's current position data
-        noisy_position = add_noise(position, mean=0.0, std_dev=0.5)  # Adjust mean and std_dev as needed
 
         # Record position and orientation
         flight_path.append((position, orientation))
 
         # use PID Control logic moving to the next waypoint asynchronously
         # Calculate position error in X-Y plane
-        error_x = waypoint.x_val - noisy_position.x_val
-        error_y = waypoint.y_val - noisy_position.y_val
+        error_x = waypoint.x_val - position.x_val
+        error_y = waypoint.y_val - position.y_val
 
          # Update PID controllers
         control_x = pid_x.update(error_x, dt)
@@ -112,7 +110,7 @@ for idx, waypoint in enumerate(waypoints):
     # Save LiDAR data to a file
     lidar_filename = os.path.join(lidar_data_dir, f"waypoint_{idx+1}_lidar_data.csv")
     np.savetxt(lidar_filename, points, delimiter=",", fmt='%f', header='x,y,z', comments='')
-
+    
     print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
 
 # Land
