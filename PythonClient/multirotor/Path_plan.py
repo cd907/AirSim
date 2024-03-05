@@ -99,6 +99,15 @@ for idx, waypoint in enumerate(waypoints):
         # max(min_value, min(val, max_value))
 
         client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=1)
+
+        # Check for collision
+        collision_info = client.simGetCollisionInfo()
+
+        if collision_info.has_collided:
+            print("Collision detected!")
+        else:
+            print("No collision detected.")
+
         
         # Sleep for a short duration to avoid excessive sampling
         time.sleep(0.1)
