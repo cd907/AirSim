@@ -49,7 +49,6 @@ waypoints = [
     airsim.Vector3r(0, 0, -10)
 ]
 
-flight_path = []
 
 lidar_data_dir = "lidar_data"
 os.makedirs(lidar_data_dir, exist_ok=True)
@@ -63,6 +62,7 @@ noise_variances = [0.01, 0.1, 1.0]
 
 
 for i, variance in enumerate(noise_variances):
+    flight_path = []
     # Connect to the AirSim simulator
     client = airsim.MultirotorClient()
     client.confirmConnection()
@@ -158,6 +158,7 @@ for i, variance in enumerate(noise_variances):
     ax.set_zlabel('Z')
     ax.set_title(f'3D Flight Path Visualization with Noise Variance {variance}')
     plt.savefig(f'flight_path_simulation_{i+1}.png')
+    plt.clf()
 
 
 
