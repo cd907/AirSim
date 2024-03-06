@@ -58,6 +58,9 @@ os.makedirs(lidar_data_dir, exist_ok=True)
 pid_x = PIDController()
 pid_y = PIDController()
 
+# Define noise variances for different simulations
+noise_variances = [0.01, 0.1, 1.0]
+
 # Connect to the AirSim simulator
 client = airsim.MultirotorClient()
 client.confirmConnection()
@@ -67,65 +70,88 @@ client.armDisarm(True)
 # Takeoff
 client.takeoffAsync().join()
 
+for i, variance in enumerate(noise_variances):
+    for idx, waypoint in enumerate(waypoints):
 
-for idx, waypoint in enumerate(waypoints):
+        last_time = time.time()
+        # Continuously sample state until the drone is close to the waypoint
+        while not is_close(client.simGetVehiclePose().position, waypoint):
 
-    last_time = time.time()
-    # Continuously sample state until the drone is close to the waypoint
-    while not is_close(client.simGetVehiclePose().position, waypoint):
+            now = time.time()
+            dt = now - last_time
+            last_time = now
 
-        now = time.time()
-        dt = now - last_time
-        last_time = now
+            # Get current position
+            state = client.simGetVehiclePose()
+            position = state.position
+            orientation = state.orientation  # Quaternion
 
-        # Get current position
-        state = client.simGetVehiclePose()
-        position = state.position
-        orientation = state.orientation  # Quaternion
+            # Add Gaussian noise to drone's current position data
+            noisy_position = add_noise(position, mean=0.0, std_dev=0.5, seed=42)  # Adjust mean and std_dev as needed
 
-        # Add Gaussian noise to drone's current position data
-        noisy_position = add_noise(position, mean=0.0, std_dev=0.5, seed=42)  # Adjust mean and std_dev as needed
+            # Record position and orientation
+            flight_path.append((position, orientation))
 
-        # Record position and orientation
-        flight_path.append((position, orientation))
+            # use PID Control logic moving to the next waypoint asynchronously
+            # Calculate position error in X-Y plane
+            error_x = waypoint.x_val - noisy_position.x_val
+            error_y = waypoint.y_val - noisy_position.y_val
 
-        # use PID Control logic moving to the next waypoint asynchronously
-        # Calculate position error in X-Y plane
-        error_x = waypoint.x_val - noisy_position.x_val
-        error_y = waypoint.y_val - noisy_position.y_val
-
-         # Update PID controllers
-        control_x = pid_x.update(error_x, dt)
-        control_y = pid_y.update(error_y, dt)
-       
-       # regulate the velocity in X,Y axis, To BE completed!
-        # max(min_value, min(val, max_value))
-
-        client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=1)
-
-        # Check for collision
-        collision_info = client.simGetCollisionInfo()
-
-        if collision_info.has_collided:
-            print("Collision detected!")
-        else:
-            print("No collision detected.")
-
+            # Update PID controllers
+            control_x = pid_x.update(error_x, dt)
+            control_y = pid_y.update(error_y, dt)
         
-        # Sleep for a short duration to avoid excessive sampling
-        time.sleep(0.1)
+        # regulate the velocity in X,Y axis, To BE completed!
+            # max(min_value, min(val, max_value))
 
-    # Retrieve LiDAR data at current position
-    lidar_data = client.getLidarData()
-    if len(lidar_data.point_cloud) < 3:
-        continue
-    points = np.array(lidar_data.point_cloud, dtype=np.float32).reshape(-1, 3)
-    
-    # Save LiDAR data to a file
-    lidar_filename = os.path.join(lidar_data_dir, f"waypoint_{idx+1}_lidar_data.csv")
-    np.savetxt(lidar_filename, points, delimiter=",", fmt='%f', header='x,y,z', comments='')
+            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=1)
 
-    print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
+            # Check for collision
+            collision_info = client.simGetCollisionInfo()
+
+            if collision_info.has_collided:
+                print("Collision detected!")
+            else:
+                print("No collision detected.")
+
+            
+            # Sleep for a short duration to avoid excessive sampling
+            time.sleep(0.1)
+
+        # Retrieve LiDAR data at current position
+        lidar_data = client.getLidarData()
+        if len(lidar_data.point_cloud) < 3:
+            continue
+        points = np.array(lidar_data.point_cloud, dtype=np.float32).reshape(-1, 3)
+        
+        # Save LiDAR data to a file
+        lidar_filename = os.path.join(lidar_data_dir, f"waypoint_{idx+1}_lidar_data.csv")
+        np.savetxt(lidar_filename, points, delimiter=",", fmt='%f', header='x,y,z', comments='')
+
+        print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
+
+    # Extracting X, Y, Z coordinates
+    x_vals = [pos.x_val for pos, _ in flight_path]
+    y_vals = [pos.y_val for pos, _ in flight_path]
+    z_vals = [pos.z_val for pos, _ in flight_path]
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plotting the flight path as a scatter plot
+    ax.scatter(x_vals, y_vals, z_vals, c='blue', s=10) 
+
+    # Highlight the start point in green
+    ax.scatter(x_vals[0], y_vals[0], z_vals[0], c='green', s=50, label='Start Point')
+
+    # Highlight the end point in red
+    ax.scatter(x_vals[-1], y_vals[-1], z_vals[-1], c='red', s=50, label='End Point')
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_title(f'3D Flight Path Visualization with Noise Variance {variance}')
+    plt.savefig(f'flight_path_simulation_{i+1}.png')
 
 # Land
 client.landAsync().join()
@@ -133,35 +159,12 @@ client.armDisarm(False)
 client.enableApiControl(False)
 
 # Print recorded flight path
-print("Flight path:")
-for pos, orient in flight_path:
-    print(f"Position: ({pos.x_val}, {pos.y_val}, {pos.z_val}), Orientation (quaternion): ({orient.x_val}, {orient.y_val}, {orient.z_val}, {orient.w_val})")
+# print("Flight path:")
+# for pos, orient in flight_path:
+#     print(f"Position: ({pos.x_val}, {pos.y_val}, {pos.z_val}), Orientation (quaternion): ({orient.x_val}, {orient.y_val}, {orient.z_val}, {orient.w_val})")
 
-
-# Extracting X, Y, Z coordinates
-x_vals = [pos.x_val for pos, _ in flight_path]
-y_vals = [pos.y_val for pos, _ in flight_path]
-z_vals = [pos.z_val for pos, _ in flight_path]
-
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
 
 # Plotting the flight path
 # ax.plot(x_vals, y_vals, z_vals, marker='o')
 
-# Plotting the flight path as a scatter plot
-ax.scatter(x_vals, y_vals, z_vals, c='blue', s=10) 
-
-# Highlight the start point in green
-ax.scatter(x_vals[0], y_vals[0], z_vals[0], c='green', s=50, label='Start Point')
-
-# Highlight the end point in red
-ax.scatter(x_vals[-1], y_vals[-1], z_vals[-1], c='red', s=50, label='End Point')
-
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-ax.set_zlabel('Z')
-plt.title('3D Flight Path Visualization')
-
-plt.show()
 
