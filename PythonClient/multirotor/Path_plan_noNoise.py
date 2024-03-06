@@ -132,7 +132,16 @@ fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 
 # Plotting the flight path
-ax.plot(x_vals, y_vals, z_vals, marker='o')
+# ax.plot(x_vals, y_vals, z_vals, marker='o')
+
+# Plotting the flight path as a scatter plot
+ax.scatter(x_vals, y_vals, z_vals, c='blue', s=10) 
+
+# Highlight the start point in green
+ax.scatter(x_vals[0], y_vals[0], z_vals[0], c='green', s=50, label='Start Point')
+
+# Highlight the end point in red
+ax.scatter(x_vals[-1], y_vals[-1], z_vals[-1], c='red', s=50, label='End Point')
 
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
