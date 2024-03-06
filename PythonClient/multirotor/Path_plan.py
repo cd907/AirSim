@@ -10,7 +10,10 @@ def is_close(current, target, threshold=1.0):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
 # Function to add Gaussian noise to position data
-def add_noise(position, mean=0.0, std_dev=1.0):
+def add_noise(position, mean=0.0, std_dev=1.0, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+
     position_array = np.array([position.x_val, position.y_val, position.z_val])
 
     # Add Gaussian noise
@@ -81,7 +84,7 @@ for idx, waypoint in enumerate(waypoints):
         orientation = state.orientation  # Quaternion
 
         # Add Gaussian noise to drone's current position data
-        noisy_position = add_noise(position, mean=0.0, std_dev=0.5)  # Adjust mean and std_dev as needed
+        noisy_position = add_noise(position, mean=0.0, std_dev=0.5, seed=42)  # Adjust mean and std_dev as needed
 
         # Record position and orientation
         flight_path.append((position, orientation))
@@ -153,4 +156,3 @@ plt.title('3D Flight Path Visualization')
 
 plt.show()
 
-    

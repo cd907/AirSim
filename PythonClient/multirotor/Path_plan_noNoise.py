@@ -1,5 +1,6 @@
 import airsim
 import numpy as np
+import pandas as pd
 import time
 import os
 import matplotlib.pyplot as plt
@@ -8,16 +9,6 @@ from mpl_toolkits.mplot3d import Axes3D
 # Function to check proximity between current position and target waypoint
 def is_close(current, target, threshold=1.0):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
-
-# Function to add Gaussian noise to position data
-def add_noise(position, mean=0.0, std_dev=1.0):
-    position_array = np.array([position.x_val, position.y_val, position.z_val])
-
-    # Add Gaussian noise
-    noisy_position_array = position_array + np.random.normal(mean, std_dev, position_array.shape)
-    noisy_position_vector3r = airsim.Vector3r(noisy_position_array[0], noisy_position_array[1], noisy_position_array[2])
-
-    return noisy_position_vector3r
 
 class PIDController:
     def __init__(self, kp_val=0.1, ki_val=0.01, kd_val=0.01,
@@ -150,4 +141,14 @@ plt.title('3D Flight Path Visualization')
 
 plt.show()
 
-    
+# Plotting the LiDAR data
+df_no_noise = pd.read_csv(lidar_filename)
+fig_no_noise = plt.figure()
+ax_no_noise = fig_no_noise.add_subplot(111, projection='3d')
+ax_no_noise.scatter(df_no_noise['x'], df_no_noise['y'], df_no_noise['z'])
+ax_no_noise.set_title('No Noise LiDAR Data')
+ax_no_noise.set_xlabel('X axis')
+ax_no_noise.set_ylabel('Y axis')
+ax_no_noise.set_zlabel('Z axis')
+
+plt.show()
