@@ -61,16 +61,17 @@ pid_y = PIDController()
 # Define noise variances for different simulations
 noise_variances = [0.01, 0.1, 1.0]
 
-# Connect to the AirSim simulator
-client = airsim.MultirotorClient()
-client.confirmConnection()
-client.enableApiControl(True)
-client.armDisarm(True)
-
-# Takeoff
-client.takeoffAsync().join()
 
 for i, variance in enumerate(noise_variances):
+    # Connect to the AirSim simulator
+    client = airsim.MultirotorClient()
+    client.confirmConnection()
+    client.enableApiControl(True)
+    client.armDisarm(True)
+
+    # Takeoff
+    client.takeoffAsync().join()
+    
     for idx, waypoint in enumerate(waypoints):
 
         last_time = time.time()
@@ -87,7 +88,7 @@ for i, variance in enumerate(noise_variances):
             orientation = state.orientation  # Quaternion
 
             # Add Gaussian noise to drone's current position data
-            noisy_position = add_noise(position, mean=0.0, std_dev=0.5, seed=42)  # Adjust mean and std_dev as needed
+            noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=42)  # Adjust mean and std_dev as needed
 
             # Record position and orientation
             flight_path.append((position, orientation))
@@ -130,6 +131,11 @@ for i, variance in enumerate(noise_variances):
 
         print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
 
+    # Land
+    client.landAsync().join()
+    client.armDisarm(False)
+    client.enableApiControl(False)
+    
     # Extracting X, Y, Z coordinates
     x_vals = [pos.x_val for pos, _ in flight_path]
     y_vals = [pos.y_val for pos, _ in flight_path]
@@ -153,10 +159,7 @@ for i, variance in enumerate(noise_variances):
     ax.set_title(f'3D Flight Path Visualization with Noise Variance {variance}')
     plt.savefig(f'flight_path_simulation_{i+1}.png')
 
-# Land
-client.landAsync().join()
-client.armDisarm(False)
-client.enableApiControl(False)
+
 
 # Print recorded flight path
 # print("Flight path:")
