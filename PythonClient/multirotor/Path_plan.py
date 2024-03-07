@@ -2,6 +2,7 @@ import airsim
 import numpy as np
 import time
 import os
+import pandas as pd
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -49,7 +50,7 @@ waypoints = [
     airsim.Vector3r(0, 0, -10)
 ]
 
-
+csv_file_name = 'simulation_results.csv'
 lidar_data_dir = "lidar_data"
 os.makedirs(lidar_data_dir, exist_ok=True)
 
@@ -58,8 +59,8 @@ pid_x = PIDController()
 pid_y = PIDController()
 
 # Define noise variances for different simulations
-noise_variances = [0.01, 0.1, 1.0]
-
+noise_variances = [0.0, 0.01, 0.1, 1.0]
+results = []
 
 for i, variance in enumerate(noise_variances):
     flight_path = []
@@ -152,10 +153,15 @@ for i, variance in enumerate(noise_variances):
     total_time = time.time() - start_time
     average_waypoint_distance = sum(waypoint_distances) / len(waypoint_distances) if waypoint_distances else 0
 
-    print(f"Total Distance Traveled: {total_distance} meters")
-    print(f"Total Flight Time: {total_time} seconds")
-    print(f"Collision Count: {collision_count}")
-    print(f"Average Distance from Waypoints: {average_waypoint_distance} meters")
+    # print(f"Total Distance Traveled: {total_distance} meters")
+    # print(f"Total Flight Time: {total_time} seconds")
+    # print(f"Collision Count: {collision_count}")
+    # print(f"Average Distance from Waypoints: {average_waypoint_distance} meters")
+    results.append({'Noise Variance': variance,
+        'Total Distance Traveled (m)': total_distance,
+        'Total Flight Time (s)': total_time,
+        'Collision Count': collision_count,
+        'Average Distance from Waypoints (m)': average_waypoint_distance})
     
     # Extracting X, Y, Z coordinates
     x_vals = [pos.x_val for pos, _ in flight_path]
@@ -182,6 +188,8 @@ for i, variance in enumerate(noise_variances):
     plt.clf()
 
 
+df = pd.DataFrame(results)
+df.to_excel('simulation_results.xlsx', index=False)
 
 # Print recorded flight path
 # print("Flight path:")
