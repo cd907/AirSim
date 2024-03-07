@@ -63,6 +63,11 @@ noise_variances = [0.01, 0.1, 1.0]
 
 for i, variance in enumerate(noise_variances):
     flight_path = []
+    total_distance = 0
+    waypoint_distances = []
+    collision_count = 0
+    start_time = time.time()
+
     # Connect to the AirSim simulator
     client = airsim.MultirotorClient()
     client.confirmConnection()
@@ -75,6 +80,7 @@ for i, variance in enumerate(noise_variances):
     for idx, waypoint in enumerate(waypoints):
 
         last_time = time.time()
+        prev_position = client.simGetVehiclePose().position.to_numpy_array()
         # Continuously sample state until the drone is close to the waypoint
         while not is_close(client.simGetVehiclePose().position, waypoint):
 
@@ -92,6 +98,11 @@ for i, variance in enumerate(noise_variances):
 
             # Record position and orientation
             flight_path.append((position, orientation))
+
+            # Calculate distance traveled since last position
+            distance = np.linalg.norm(position - prev_position)
+            total_distance += distance
+            prev_position = position
 
             # use PID Control logic moving to the next waypoint asynchronously
             # Calculate position error in X-Y plane
@@ -112,6 +123,7 @@ for i, variance in enumerate(noise_variances):
 
             if collision_info.has_collided:
                 print("Collision detected!")
+                collision_count += 1
             else:
                 print("No collision detected.")
 
@@ -119,22 +131,34 @@ for i, variance in enumerate(noise_variances):
             # Sleep for a short duration to avoid excessive sampling
             time.sleep(0.1)
 
-        # Retrieve LiDAR data at current position
-        lidar_data = client.getLidarData()
-        if len(lidar_data.point_cloud) < 3:
-            continue
-        points = np.array(lidar_data.point_cloud, dtype=np.float32).reshape(-1, 3)
-        
-        # Save LiDAR data to a file
-        lidar_filename = os.path.join(lidar_data_dir, f"waypoint_{idx+1}_lidar_data.csv")
-        np.savetxt(lidar_filename, points, delimiter=",", fmt='%f', header='x,y,z', comments='')
+        # Calculate distance from waypoint (considering it reached)
+        waypoint_distance = np.linalg.norm(client.simGetVehiclePose().position - waypoint.to_numpy_array())
+        waypoint_distances.append(waypoint_distance)
 
-        print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
+        # # Retrieve LiDAR data at current position
+        # lidar_data = client.getLidarData()
+        # if len(lidar_data.point_cloud) < 3:
+        #     continue
+        # points = np.array(lidar_data.point_cloud, dtype=np.float32).reshape(-1, 3)
+        
+        # # Save LiDAR data to a file
+        # lidar_filename = os.path.join(lidar_data_dir, f"waypoint_{idx+1}_lidar_data.csv")
+        # np.savetxt(lidar_filename, points, delimiter=",", fmt='%f', header='x,y,z', comments='')
+
+        # print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
 
     # Land
     client.landAsync().join()
     client.armDisarm(False)
     client.enableApiControl(False)
+    
+    total_time = time.time() - start_time
+    average_waypoint_distance = sum(waypoint_distances) / len(waypoint_distances) if waypoint_distances else 0
+
+    print(f"Total Distance Traveled: {total_distance} meters")
+    print(f"Total Flight Time: {total_time} seconds")
+    print(f"Collision Count: {collision_count}")
+    print(f"Average Distance from Waypoints: {average_waypoint_distance} meters")
     
     # Extracting X, Y, Z coordinates
     x_vals = [pos.x_val for pos, _ in flight_path]
