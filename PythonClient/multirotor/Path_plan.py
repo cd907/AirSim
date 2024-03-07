@@ -100,9 +100,9 @@ for i, variance in enumerate(noise_variances):
             flight_path.append((position, orientation))
 
             # Calculate distance traveled since last position
-            distance = np.linalg.norm(position - prev_position)
+            distance = np.linalg.norm(position.to_numpy_array() - prev_position)
             total_distance += distance
-            prev_position = position
+            prev_position = position.to_numpy_array()
 
             # use PID Control logic moving to the next waypoint asynchronously
             # Calculate position error in X-Y plane
@@ -124,15 +124,12 @@ for i, variance in enumerate(noise_variances):
             if collision_info.has_collided:
                 print("Collision detected!")
                 collision_count += 1
-            else:
-                print("No collision detected.")
-
             
             # Sleep for a short duration to avoid excessive sampling
             time.sleep(0.1)
 
         # Calculate distance from waypoint (considering it reached)
-        waypoint_distance = np.linalg.norm(client.simGetVehiclePose().position - waypoint.to_numpy_array())
+        waypoint_distance = np.linalg.norm(client.simGetVehiclePose().position.to_numpy_array() - waypoint.to_numpy_array())
         waypoint_distances.append(waypoint_distance)
 
         # # Retrieve LiDAR data at current position
