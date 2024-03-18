@@ -59,7 +59,7 @@ pid_x = PIDController()
 pid_y = PIDController()
 
 # Define noise variances for different simulations
-noise_variances = [0.0, 0.01, 0.1, 1.0]
+noise_variances = [0.0, 0.01, 0.1]
 results = []
 
 for i, variance in enumerate(noise_variances):
@@ -95,7 +95,7 @@ for i, variance in enumerate(noise_variances):
             orientation = state.orientation  # Quaternion
 
             # Add Gaussian noise to drone's current position data
-            noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=42)  # Adjust mean and std_dev as needed
+            noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=0)  # Adjust mean and std_dev as needed
 
             # Record position and orientation
             flight_path.append((position, orientation))
@@ -146,7 +146,7 @@ for i, variance in enumerate(noise_variances):
         # print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
 
     # Land
-    client.landAsync().join()
+    client.reset()
     client.armDisarm(False)
     client.enableApiControl(False)
     

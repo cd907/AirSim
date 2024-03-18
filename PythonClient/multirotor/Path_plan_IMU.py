@@ -139,7 +139,7 @@ for i, variance in enumerate(noise_variances):
         # regulate the velocity in X,Y axis, To BE completed!
             # max(min_value, min(val, max_value))
 
-            client.moveByRollPitchYawZAsync(roll=0, pitch=pitch_correction, yaw=yaw_correction, z=waypoint.z_val, duration=1)
+            client.moveByRollPitchYawZAsync(roll=0, pitch=control_pitch, yaw=control_yaw, z=waypoint.z_val, duration=1)
 
             # Check for collision
             collision_info = client.simGetCollisionInfo()
