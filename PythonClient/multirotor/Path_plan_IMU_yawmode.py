@@ -97,6 +97,7 @@ for i, std in enumerate(pos_noise_std):
 
             now = time.time()
             dt = now - last_time
+            print(dt)
             last_time = now
 
             # Get current state
@@ -111,12 +112,13 @@ for i, std in enumerate(pos_noise_std):
 
             # Add Gaussian noise to yaw
             noisy_yaw = add_gaussian_noise(yaw, mean=0.0, std_dev=yaw_noise_std, seed=42)
-            print(noisy_yaw)
+      
 
             # Calculate error in X-Y plane
             error_x = waypoint.x_val - noisy_position.x_val
             error_y = waypoint.y_val - noisy_position.y_val
-
+            print(waypoint.x_val, waypoint.y_val)
+            
             # Record position and orientation
             flight_path.append((position, orientation))
 
@@ -133,7 +135,7 @@ for i, std in enumerate(pos_noise_std):
             # use PID Control logic on angle level and moving to the next waypoint asynchronously
 
             # Calculate desired yaw
-            desired_yaw = math.atan2(waypoint.y_val - position.y_val, waypoint.x_val - position.x_val)
+            desired_yaw = math.atan2(waypoint.y_val - noisy_position.y_val, waypoint.x_val - noisy_position.x_val)
 
             # Update PID controllers
             # Calculate errors on yaw
@@ -144,7 +146,7 @@ for i, std in enumerate(pos_noise_std):
         # regulate the velocity in X,Y axis, To BE completed!
             # max(min_value, min(val, max_value))
 
-            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=1, drivetrain=airsim.DrivetrainType.ForwardOnly, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=math.degrees(control_yaw)))
+            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=math.degrees(control_yaw)))
 
 
             # Check for collision
