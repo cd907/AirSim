@@ -24,11 +24,11 @@ def add_noise(data, mean=0.0, std_dev=1.0, seed=None):
 
     return noisy_data_vector3r
 
-def add_gaussian_noise(value, mean=0.0, std_dev=1.0, seed=None):
+def multiplicative_noise(value, mean=0.0, std_dev=1.0, seed=None):
     if seed is not None:
         np.random.seed(seed)
-    noisy_value = value + np.random.normal(mean, std_dev)
-    return noisy_value
+    noise_factor = np.random.normal(mean, std_dev)
+    return value * noise_factor
 
 
 class PIDController:
@@ -68,8 +68,8 @@ pid_y = PIDController()
 pid_yaw = PIDController()
 
 # Define noise standard deviations for different simulations
-pos_noise_std = [1.0]
-yaw_noise_std = 0.001
+pos_noise_std = [0.0, 0.01, 0.1, 0.5, 1.0]
+yaw_noise_std = 0.1
 results = []
 
 for i, std in enumerate(pos_noise_std):
@@ -111,7 +111,7 @@ for i, std in enumerate(pos_noise_std):
             noisy_position = add_noise(position, mean=0.0, std_dev=std, seed=42)  # Adjust mean and std_dev as needed
 
             # Add Gaussian noise to yaw
-            noisy_yaw = add_gaussian_noise(yaw, mean=0.0, std_dev=yaw_noise_std, seed=42)
+            noisy_yaw = multiplicative_noise(yaw, mean=0.0, std_dev=yaw_noise_std, seed=42)
       
 
             # Calculate error in X-Y plane
