@@ -23,6 +23,12 @@ def add_noise(position, mean=0.0, std_dev=1.0, seed=None):
 
     return noisy_position_vector3r
 
+def add_gaussian_noise(value, mean=0.0, std_dev=1.0, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+    noisy_value = value + np.random.normal(mean, std_dev)
+    return noisy_value
+
 class PIDController:
     def __init__(self, kp_val=0.1, ki_val=0.01, kd_val=0.01,
                  min_output_val=-1, max_output_val=1):
@@ -57,6 +63,7 @@ os.makedirs(lidar_data_dir, exist_ok=True)
 # Initialize PID controllers for X, Y, Z axes
 pid_x = PIDController()
 pid_y = PIDController()
+pid_z = PIDController()
 
 # Define noise variances for different simulations
 noise_variances = [0.0, 0.01, 0.1, 1.0]
@@ -94,6 +101,7 @@ for i, variance in enumerate(noise_variances):
             position = state.position
             orientation = state.orientation  # Quaternion
 
+            # Add Gaussian noise to altitude reading 
             # Add Gaussian noise to drone's current position data
             noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=42)  # Adjust mean and std_dev as needed
 
@@ -109,15 +117,18 @@ for i, variance in enumerate(noise_variances):
             # Calculate position error in X-Y plane
             error_x = waypoint.x_val - noisy_position.x_val
             error_y = waypoint.y_val - noisy_position.y_val
+            # Calculate altitude error based on noisy reading
+            error_z = waypoint.z_val - noisy_position.z_val
+            
 
             # Update PID controllers
             control_x = pid_x.update(error_x, dt)
             control_y = pid_y.update(error_y, dt)
+            control_z = pid_z.update(error_z, dt) 
         
         # regulate the velocity in X,Y axis, To BE completed!
             # max(min_value, min(val, max_value))
-
-            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=1)
+            client.moveByVelocityAsync(vx=control_x, vy=control_y, vz=control_z, duration=dt)
 
             # Check for collision
             collision_info = client.simGetCollisionInfo()
