@@ -24,6 +24,13 @@ def add_noise(data, mean=0.0, std_dev=1.0, seed=None):
 
     return noisy_data_vector3r
 
+def add_gaussian_noise(value, mean=0.0, std_dev=1.0, seed=None):
+    if seed is not None:
+        np.random.seed(seed)
+    noisy_value = value + np.random.normal(mean, std_dev)
+    return noisy_value
+
+
 class PIDController:
     def __init__(self, kp_val=0.1, ki_val=0.01, kd_val=0.01,
                  min_output_val=-1, max_output_val=1):
@@ -96,12 +103,13 @@ for i, variance in enumerate(noise_variances):
             position = state.position
             orientation = state.orientation  # Quaternion
             roll, pitch, yaw = airsim.to_eularian_angles(orientation)
+            print(yaw)
 
              # Add Gaussian noise to drone's current position data
             noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=42)  # Adjust mean and std_dev as needed
 
             # Add Gaussian noise to yaw
-            noisy_yaw = add_noise(yaw, mean=0.0, std_dev=np.sqrt(variance), seed=42)
+            noisy_yaw = add_gaussian_noise(yaw, mean=0.0, std_dev=0.01, seed=42)
             print(noisy_yaw)
 
             # Calculate accelarator error in X-Y plane
