@@ -49,11 +49,11 @@ class PIDController:
 
 # Define waypoints in mission (x, y, z in meters)
 waypoints = [
-    airsim.Vector3r(0, 0, -10),
+    airsim.Vector3r(0, 0, -5),
     airsim.Vector3r(10, 0, -10),
-    airsim.Vector3r(10, 10, -10),
-    airsim.Vector3r(0, 10, -10),
-    airsim.Vector3r(0, 0, -10)
+    airsim.Vector3r(10, 10, -13),
+    airsim.Vector3r(0, 10, -8),
+    airsim.Vector3r(0, 0, 0)
 ]
 
 csv_file_name = 'simulation_results.csv'
@@ -66,10 +66,10 @@ pid_y = PIDController()
 pid_z = PIDController()
 
 # Define noise variances for different simulations
-noise_variances = [0.0, 0.01, 0.1, 1.0]
+noise_std = [0.0, 0.01, 0.1, 0.5, 1.0, 2.0, 5.0]
 results = []
 
-for i, variance in enumerate(noise_variances):
+for i, std in enumerate(noise_std):
     flight_path = []
     total_distance = 0
     waypoint_distances = []
@@ -103,7 +103,7 @@ for i, variance in enumerate(noise_variances):
 
             # Add Gaussian noise to altitude reading 
             # Add Gaussian noise to drone's current position data
-            noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=42)  # Adjust mean and std_dev as needed
+            noisy_position = add_noise(position, mean=0.0, std_dev=std, seed=42)  # Adjust mean and std_dev as needed
 
             # Record position and orientation
             flight_path.append((position, orientation))
@@ -168,7 +168,7 @@ for i, variance in enumerate(noise_variances):
     # print(f"Total Flight Time: {total_time} seconds")
     # print(f"Collision Count: {collision_count}")
     # print(f"Average Distance from Waypoints: {average_waypoint_distance} meters")
-    results.append({'Noise Variance': variance,
+    results.append({'Noise Variance': std,
         'Total Distance Traveled (m)': total_distance,
         'Total Flight Time (s)': total_time,
         'Collision Count': collision_count,
@@ -194,7 +194,7 @@ for i, variance in enumerate(noise_variances):
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_title(f'3D Flight Path Visualization with Noise Variance {variance}')
+    ax.set_title(f'3D Flight Path Visualization with Noise std {std}')
     plt.savefig(f'flight_path_simulation_{i+1}.png')
     plt.clf()
 
