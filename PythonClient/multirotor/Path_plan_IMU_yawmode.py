@@ -24,11 +24,6 @@ def add_noise(data, mean=0.0, std_dev=1.0, seed=None):
 
     return noisy_data_vector3r
 
-def calculate_desired_pitch(z1, z2, horizontal_distance):
-    if horizontal_distance > 0:
-        return math.atan2(z2 - z1, horizontal_distance)
-    return 0
-
 class PIDController:
     def __init__(self, kp_val=0.1, ki_val=0.01, kd_val=0.01,
                  min_output_val=-1, max_output_val=1):
@@ -105,15 +100,13 @@ for i, variance in enumerate(noise_variances):
              # Add Gaussian noise to drone's current position data
             noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=42)  # Adjust mean and std_dev as needed
 
+            # Add Gaussian noise to yaw
+            noisy_yaw = add_noise(yaw, mean=0.0, std_dev=np.sqrt(variance), seed=42)
+            print(noisy_yaw)
+
             # Calculate accelarator error in X-Y plane
             error_x = waypoint.x_val - noisy_position.x_val
             error_y = waypoint.y_val - noisy_position.y_val
-
-            # Calculate horizontal distance from current point to target
-            horizontal_distance = math.sqrt((error_x) ** 2 + (error_y) ** 2)
-
-            # Add noise to roll, pitch, yaw
-            noisy_orientation = add_noise(orientation, mean=0.0, std_dev=np.sqrt(variance), seed=42)
 
             # Record position and orientation
             flight_path.append((position, orientation))
@@ -131,11 +124,11 @@ for i, variance in enumerate(noise_variances):
             # use PID Control logic on angle level and moving to the next waypoint asynchronously
 
             # Calculate desired yaw
-            desired_yaw = math.atan2(error_y, error_x)
+            desired_yaw = math.atan2(waypoint.y_val - position.y_val, waypoint.x_val - position.x_val)
 
             # Update PID controllers
             # Calculate errors on yaw
-            error_yaw = desired_yaw - yaw
+            error_yaw = desired_yaw - noisy_yaw
             
             control_yaw = pid_yaw.update(error_yaw, dt)
         
