@@ -67,11 +67,12 @@ pid_x = PIDController()
 pid_y = PIDController()
 pid_yaw = PIDController()
 
-# Define noise variances for different simulations
-noise_variances = [0.0, 0.01, 0.1, 1.0]
+# Define noise standard deviations for different simulations
+pos_noise_std = [0.0, 0.01, 0.1, 1.0]
+yaw_noise_std = 0.001
 results = []
 
-for i, variance in enumerate(noise_variances):
+for i, std in enumerate(pos_noise_std):
     flight_path = []
     total_distance = 0
     waypoint_distances = []
@@ -106,13 +107,13 @@ for i, variance in enumerate(noise_variances):
             print(yaw)
 
              # Add Gaussian noise to drone's current position data
-            noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=42)  # Adjust mean and std_dev as needed
+            noisy_position = add_noise(position, mean=0.0, std_dev=std, seed=42)  # Adjust mean and std_dev as needed
 
             # Add Gaussian noise to yaw
-            noisy_yaw = add_gaussian_noise(yaw, mean=0.0, std_dev=0.01, seed=42)
+            noisy_yaw = add_gaussian_noise(yaw, mean=0.0, std_dev=yaw_noise_std, seed=42)
             print(noisy_yaw)
 
-            # Calculate accelarator error in X-Y plane
+            # Calculate error in X-Y plane
             error_x = waypoint.x_val - noisy_position.x_val
             error_y = waypoint.y_val - noisy_position.y_val
 
