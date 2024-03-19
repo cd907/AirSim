@@ -68,7 +68,7 @@ pid_y = PIDController()
 pid_yaw = PIDController()
 
 # Define noise standard deviations for different simulations
-pos_noise_std = [0.0, 0.01, 0.1, 1.0]
+pos_noise_std = [1.0]
 yaw_noise_std = 0.001
 results = []
 
@@ -117,7 +117,7 @@ for i, std in enumerate(pos_noise_std):
             # Calculate error in X-Y plane
             error_x = waypoint.x_val - noisy_position.x_val
             error_y = waypoint.y_val - noisy_position.y_val
-            print(waypoint.x_val, waypoint.y_val)
+            print(noisy_position.x_val, noisy_position.y_val)
             
             # Record position and orientation
             flight_path.append((position, orientation))
@@ -187,7 +187,7 @@ for i, std in enumerate(pos_noise_std):
     # print(f"Total Flight Time: {total_time} seconds")
     # print(f"Collision Count: {collision_count}")
     # print(f"Average Distance from Waypoints: {average_waypoint_distance} meters")
-    results.append({'Noise Variance': variance,
+    results.append({'Noise std': std,
         'Total Distance Traveled (m)': total_distance,
         'Total Flight Time (s)': total_time,
         'Collision Count': collision_count,
@@ -213,7 +213,7 @@ for i, std in enumerate(pos_noise_std):
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_title(f'3D Flight Path Visualization with Noise Variance {variance}')
+    ax.set_title(f'3D Flight Path Visualization with Noise std {std}')
     plt.savefig(f'flight_path_simulation_{i+1}.png')
     plt.clf()
 
