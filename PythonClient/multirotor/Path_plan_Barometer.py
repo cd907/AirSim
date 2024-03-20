@@ -53,7 +53,7 @@ waypoints = [
     airsim.Vector3r(10, 0, -10),
     airsim.Vector3r(10, 10, -13),
     airsim.Vector3r(0, 10, -8),
-    airsim.Vector3r(0, 0, 0)
+    airsim.Vector3r(0, 0, -3)
 ]
 
 csv_file_name = 'simulation_results.csv'
@@ -66,7 +66,7 @@ pid_y = PIDController()
 pid_z = PIDController()
 
 # Define noise variances for different simulations
-noise_std = [0.0, 0.01, 0.1, 0.5, 1.0, 2.0, 5.0]
+noise_std = [0.0, 0.01, 0.1, 0.5, 1.0, 2.0]
 results = []
 
 for i, std in enumerate(noise_std):
@@ -157,7 +157,7 @@ for i, std in enumerate(noise_std):
         # print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
 
     # Land
-    client.landAsync().join()
+    client.reset()
     client.armDisarm(False)
     client.enableApiControl(False)
     
@@ -168,7 +168,7 @@ for i, std in enumerate(noise_std):
     # print(f"Total Flight Time: {total_time} seconds")
     # print(f"Collision Count: {collision_count}")
     # print(f"Average Distance from Waypoints: {average_waypoint_distance} meters")
-    results.append({'Noise Variance': std,
+    results.append({'Noise std': std,
         'Total Distance Traveled (m)': total_distance,
         'Total Flight Time (s)': total_time,
         'Collision Count': collision_count,

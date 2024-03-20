@@ -68,7 +68,7 @@ pid_y = PIDController()
 pid_yaw = PIDController()
 
 # Define noise standard deviations for different simulations
-pos_noise_std = [0.0, 0.01, 0.1, 0.5, 1.0]
+pos_noise_std = [0.0, 0.01, 0.1, 0.5, 1.0, 2.0]
 yaw_noise_std = 0.1
 results = []
 
@@ -183,10 +183,6 @@ for i, std in enumerate(pos_noise_std):
     total_time = time.time() - start_time
     average_waypoint_distance = sum(waypoint_distances) / len(waypoint_distances) if waypoint_distances else 0
 
-    # print(f"Total Distance Traveled: {total_distance} meters")
-    # print(f"Total Flight Time: {total_time} seconds")
-    # print(f"Collision Count: {collision_count}")
-    # print(f"Average Distance from Waypoints: {average_waypoint_distance} meters")
     results.append({'Noise std': std,
         'Total Distance Traveled (m)': total_distance,
         'Total Flight Time (s)': total_time,
