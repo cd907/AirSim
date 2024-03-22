@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Function to check proximity between current position and target waypoint
-def is_close(current, target, threshold=0.1):
+def is_close(current, target, threshold=0.5):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
 # Function to add Gaussian noise to position data
@@ -25,21 +25,30 @@ def add_noise(position, mean=0.0, std_dev=1.0, seed=None):
 
 class PIDController:
     def __init__(self, kp_val=1, ki_val=0, kd_val=10,
-                 min_output_val=-1, max_output_val=1):
+                  max_output_val=1):
         self.kp = kp_val
         self.ki = ki_val
         self.kd = kd_val
         self.integral = 0
         self.prev_error = 0
-        self.min_output = min_output_val
         self.max_output = max_output_val
 
     
     def update(self, error, dt):
-        self.integral += error * dt
+        self.integral += self.ki * error * dt # maybe use more advanced integral method?
+
+        # Prevent integral windup by limiting the integral term
+        self.integral = max(min(self.integral, self.max_output), -self.max_output)
+
         derivative = (error - self.prev_error) / dt if dt > 0 else 0
+
+        pid_output = self.kp * error + self.integral + self.kd * derivative
+    
+        # Limit the PID output
+        pid_output = max(min(pid_output, self.max_output), -self.max_output)
+
         self.prev_error = error
-        return self.kp * error + self.ki * self.integral + self.kd * derivative
+        return pid_output
 
 # Define waypoints in mission (x, y, z in meters)
 waypoints = [
@@ -55,8 +64,10 @@ lidar_data_dir = "lidar_data"
 os.makedirs(lidar_data_dir, exist_ok=True)
 
 # Initialize PID controllers for X, Y, Z axes
-pid_x = PIDController()
-pid_y = PIDController()
+pid_x = PIDController(kp_val=1, ki_val=0, kd_val=10,
+                  max_output_val=10)
+pid_y = PIDController(kp_val=1, ki_val=0, kd_val=10,
+                  max_output_val=10)
 
 # Define noise variances for different simulations
 noise_std = [0.0, 0.01, 0.1, 1, 2, 5]
@@ -94,6 +105,7 @@ for i, std in enumerate(noise_std):
             position = state.position
             orientation = state.orientation  # Quaternion
 
+            print(position)
             # Add Gaussian noise to drone's current position data
             noisy_position = add_noise(position, mean=0.0, std_dev=std, seed=42)  # Adjust mean and std_dev as needed
 
@@ -113,7 +125,7 @@ for i, std in enumerate(noise_std):
             # Update PID controllers
             control_x = pid_x.update(error_x, dt)
             control_y = pid_y.update(error_y, dt)
-        
+            print (control_x, control_y)
         # regulate the velocity in X,Y axis, To BE completed!
             # max(min_value, min(val, max_value))
 
