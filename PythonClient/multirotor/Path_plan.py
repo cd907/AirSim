@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Function to check proximity between current position and target waypoint
-def is_close(current, target, threshold=1.0):
+def is_close(current, target, threshold=0.1):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
 # Function to add Gaussian noise to position data
@@ -24,7 +24,7 @@ def add_noise(position, mean=0.0, std_dev=1.0, seed=None):
     return noisy_position_vector3r
 
 class PIDController:
-    def __init__(self, kp_val=0.1, ki_val=0.01, kd_val=0.01,
+    def __init__(self, kp_val=1, ki_val=0, kd_val=10,
                  min_output_val=-1, max_output_val=1):
         self.kp = kp_val
         self.ki = ki_val
@@ -59,10 +59,10 @@ pid_x = PIDController()
 pid_y = PIDController()
 
 # Define noise variances for different simulations
-noise_variances = [0.0, 0.01, 0.1]
+noise_std = [0.0, 0.01, 0.1, 1, 2, 5]
 results = []
 
-for i, variance in enumerate(noise_variances):
+for i, std in enumerate(noise_std):
     flight_path = []
     total_distance = 0
     waypoint_distances = []
@@ -95,7 +95,7 @@ for i, variance in enumerate(noise_variances):
             orientation = state.orientation  # Quaternion
 
             # Add Gaussian noise to drone's current position data
-            noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=0)  # Adjust mean and std_dev as needed
+            noisy_position = add_noise(position, mean=0.0, std_dev=std, seed=42)  # Adjust mean and std_dev as needed
 
             # Record position and orientation
             flight_path.append((position, orientation))
@@ -117,7 +117,7 @@ for i, variance in enumerate(noise_variances):
         # regulate the velocity in X,Y axis, To BE completed!
             # max(min_value, min(val, max_value))
 
-            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=1)
+            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt)
 
             # Check for collision
             collision_info = client.simGetCollisionInfo()
@@ -157,7 +157,7 @@ for i, variance in enumerate(noise_variances):
     # print(f"Total Flight Time: {total_time} seconds")
     # print(f"Collision Count: {collision_count}")
     # print(f"Average Distance from Waypoints: {average_waypoint_distance} meters")
-    results.append({'Noise Variance': variance,
+    results.append({'Noise Std': std,
         'Total Distance Traveled (m)': total_distance,
         'Total Flight Time (s)': total_time,
         'Collision Count': collision_count,
@@ -183,7 +183,7 @@ for i, variance in enumerate(noise_variances):
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_title(f'3D Flight Path Visualization with Noise Variance {variance}')
+    ax.set_title(f'3D Flight Path Visualization with Noise Std {std}')
     plt.savefig(f'flight_path_simulation_{i+1}.png')
     plt.clf()
 
