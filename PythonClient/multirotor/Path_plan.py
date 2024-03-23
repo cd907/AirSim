@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Function to check proximity between current position and target waypoint
-def is_close(current, target, threshold=0.5):
+def is_close(current, target, threshold=0.1):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
 # Function to add Gaussian noise to position data
@@ -35,8 +35,9 @@ class PIDController:
 
     
     def update(self, error, dt):
-        self.integral += self.ki * error * dt # maybe use more advanced integral method?
-
+        # maybe use more advanced integral method?
+        # self.integral += self.ki * error * dt 
+        self.integral += self.ki * 0.5 * (error + self.prev_error)*dt # Trapezoidal Integration
         # Prevent integral windup by limiting the integral term
         self.integral = max(min(self.integral, self.max_output), -self.max_output)
 
@@ -64,13 +65,13 @@ lidar_data_dir = "lidar_data"
 os.makedirs(lidar_data_dir, exist_ok=True)
 
 # Initialize PID controllers for X, Y, Z axes
-pid_x = PIDController(kp_val=1, ki_val=0, kd_val=10,
+pid_x = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
                   max_output_val=10)
-pid_y = PIDController(kp_val=1, ki_val=0, kd_val=10,
+pid_y = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
                   max_output_val=10)
 
 # Define noise variances for different simulations
-noise_std = [0.0, 0.01, 0.1, 1, 2, 5]
+noise_std = [0.0, 0.01, 0.1, 1.0, 2.0, 5.0]
 results = []
 
 for i, std in enumerate(noise_std):
@@ -107,10 +108,10 @@ for i, std in enumerate(noise_std):
 
             print(position)
             # Add Gaussian noise to drone's current position data
-            noisy_position = add_noise(position, mean=0.0, std_dev=std, seed=42)  # Adjust mean and std_dev as needed
+            noisy_position = add_noise(position, mean=0.0, std_dev=std)  # Adjust mean and std_dev as needed
 
             # Record position and orientation
-            flight_path.append((position, orientation))
+            flight_path.append(( now-start_time, position))
 
             # Calculate distance traveled since last position
             distance = np.linalg.norm(position.to_numpy_array() - prev_position)
@@ -176,9 +177,10 @@ for i, std in enumerate(noise_std):
         'Average Distance from Waypoints (m)': average_waypoint_distance})
     
     # Extracting X, Y, Z coordinates
-    x_vals = [pos.x_val for pos, _ in flight_path]
-    y_vals = [pos.y_val for pos, _ in flight_path]
-    z_vals = [pos.z_val for pos, _ in flight_path]
+    times = [timestamp for timestamp, pos in flight_path]
+    x_vals = [pos.x_val for timestamp, pos in flight_path]
+    y_vals = [pos.y_val for timestamp, pos in flight_path]
+    z_vals = [-pos.z_val for timestamp, pos in flight_path] #  Negate Z to show altitude above ground
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -212,4 +214,32 @@ df.to_excel('simulation_results.xlsx', index=False)
 # Plotting the flight path
 # ax.plot(x_vals, y_vals, z_vals, marker='o')
 
+plt.figure(figsize=(12, 10))
+
+# X Position vs Time
+plt.subplot(3, 1, 1)  # 3 rows, 1 column, 1st subplot
+plt.plot(times, x_vals, label='X Position')
+plt.xlabel('Time (s)')
+plt.ylabel('X Position (m)')
+plt.title('X Position vs. Time')
+plt.legend()
+
+# Y Position vs Time
+plt.subplot(3, 1, 2)  # 3 rows, 1 column, 2nd subplot
+plt.plot(times, y_vals, label='Y Position')
+plt.xlabel('Time (s)')
+plt.ylabel('Y Position (m)')
+plt.title('Y Position vs. Time')
+plt.legend()
+
+# Z Position vs Time (Altitude)
+plt.subplot(3, 1, 3)  # 3 rows, 1 column, 3rd subplot
+plt.plot(times, z_vals, label='Altitude')
+plt.xlabel('Time (s)')
+plt.ylabel('Altitude (m)')
+plt.title('Altitude vs. Time')
+plt.legend()
+
+plt.tight_layout()
+plt.show()
 

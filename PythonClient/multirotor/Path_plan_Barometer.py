@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Function to check proximity between current position and target waypoint
-def is_close(current, target, threshold=1.0):
+def is_close(current, target, threshold=0.1):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
 # Function to add Gaussian noise to position data
@@ -30,8 +30,8 @@ def add_gaussian_noise(value, mean=0.0, std_dev=1.0, seed=None):
     return noisy_value
 
 class PIDController:
-    def __init__(self, kp_val=0.1, ki_val=0.01, kd_val=0.01,
-                 min_output_val=-1, max_output_val=1):
+    def __init__(self, kp_val=1, ki_val=0.0, kd_val=10,
+                  max_output_val=1):
         self.kp = kp_val
         self.ki = ki_val
         self.kd = kd_val
@@ -42,11 +42,23 @@ class PIDController:
 
     
     def update(self, error, dt):
-        self.integral += error * dt
-        derivative = (error - self.prev_error) / dt if dt > 0 else 0
-        self.prev_error = error
-        return self.kp * error + self.ki * self.integral + self.kd * derivative
+           # maybe use more advanced integral method?
+        # self.integral += self.ki * error * dt 
+        self.integral += self.ki * 0.5 * (error + self.prev_error)*dt # Trapezoidal Integration
 
+        # Prevent integral windup by limiting the integral term
+        self.integral = max(min(self.integral, self.max_output), -self.max_output)
+
+        derivative = (error - self.prev_error) / dt if dt > 0 else 0
+
+        pid_output = self.kp * error + self.integral + self.kd * derivative
+    
+        # Limit the PID output
+        pid_output = max(min(pid_output, self.max_output), -self.max_output)
+
+        self.prev_error = error
+        return pid_output
+    
 # Define waypoints in mission (x, y, z in meters)
 waypoints = [
     airsim.Vector3r(0, 0, -5),
@@ -61,12 +73,15 @@ lidar_data_dir = "lidar_data"
 os.makedirs(lidar_data_dir, exist_ok=True)
 
 # Initialize PID controllers for X, Y, Z axes
-pid_x = PIDController()
-pid_y = PIDController()
-pid_z = PIDController()
+pid_x = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
+                  max_output_val=10)
+pid_y = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
+                  max_output_val=10)
+pid_z = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
+                  max_output_val=10)
 
 # Define noise variances for different simulations
-noise_std = [0.0, 0.01, 0.1, 0.5, 1.0, 2.0]
+noise_std = [0.0, 0.01, 0.1, 1.0, 2.0, 5.0]
 results = []
 
 for i, std in enumerate(noise_std):
@@ -103,7 +118,7 @@ for i, std in enumerate(noise_std):
 
             # Add Gaussian noise to altitude reading 
             # Add Gaussian noise to drone's current position data
-            noisy_position = add_noise(position, mean=0.0, std_dev=std, seed=42)  # Adjust mean and std_dev as needed
+            noisy_position = add_noise(position, mean=0.0, std_dev=std)  # Adjust mean and std_dev as needed
 
             # Record position and orientation
             flight_path.append((position, orientation))
