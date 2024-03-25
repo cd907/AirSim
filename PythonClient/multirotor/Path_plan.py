@@ -1,6 +1,7 @@
 import airsim
 import numpy as np
 import time
+from datetime import datetime
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -60,9 +61,16 @@ waypoints = [
     airsim.Vector3r(0, 0, -10)
 ]
 
+# Generate a timestamp
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+# Create a new directory for this run
+results_dir = f'results_{timestamp}'
+os.makedirs(results_dir, exist_ok=True)
+
 csv_file_name = 'simulation_results.csv'
-lidar_data_dir = "lidar_data"
-os.makedirs(lidar_data_dir, exist_ok=True)
+# lidar_data_dir = "lidar_data"
+# os.makedirs(lidar_data_dir, exist_ok=True)
 
 # Initialize PID controllers for X, Y, Z axes
 pid_x = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
@@ -174,13 +182,22 @@ for i, std in enumerate(noise_std):
         'Total Distance Traveled (m)': total_distance,
         'Total Flight Time (s)': total_time,
         'Collision Count': collision_count,
-        'Average Distance from Waypoints (m)': average_waypoint_distance})
+        'Average Distance from Waypoints (m)': average_waypoint_distance,
+        'PID X kp_val': pid_x.kp_val,  # Save kp_val for PID X
+        'PID X ki_val': pid_x.ki_val,  # Save ki_val for PID X
+        'PID X kd_val': pid_x.kd_val,  # Save kd_val for PID X
+        'PID X max_output_val': pid_x.max_output,  # Save max_output_val for PID X
+        'PID Y kp_val': pid_y.kp_val,  # Save kp_val for PID Y
+        'PID Y ki_val': pid_y.ki_val,  # Save ki_val for PID Y
+        'PID Y kd_val': pid_y.kd_val,  # Save kd_val for PID Y
+        'PID Y max_output_val': pid_y.max_output  # Save max_output_val for PID Y
+    })
     
     # Extracting X, Y, Z coordinates
-    times = [timestamp for timestamp, pos in flight_path]
-    x_vals = [pos.x_val for timestamp, pos in flight_path]
-    y_vals = [pos.y_val for timestamp, pos in flight_path]
-    z_vals = [-pos.z_val for timestamp, pos in flight_path] #  Negate Z to show altitude above ground
+    times = [timestamp for timestamp, _ in flight_path]
+    x_vals = [pos.x_val for _, pos in flight_path]
+    y_vals = [pos.y_val for _, pos in flight_path]
+    z_vals = [-pos.z_val for _, pos in flight_path] #  Negate Z to show altitude above ground
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -198,12 +215,42 @@ for i, std in enumerate(noise_std):
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
     ax.set_title(f'3D Flight Path Visualization with Noise Std {std}')
-    plt.savefig(f'flight_path_simulation_{i+1}.png')
+    plt.savefig(os.path.join(results_dir, f'flight_path_simulation_{i+1}.png'))
     plt.clf()
+
+    plt.figure(figsize=(12, 10))
+
+    # X Position vs Time
+    plt.subplot(3, 1, 1)  # 3 rows, 1 column, 1st subplot
+    plt.plot(times, x_vals, label='X Position')
+    plt.xlabel('Time (s)')
+    plt.ylabel('X Position (m)')
+    plt.title('X Position vs. Time')
+    plt.legend()
+    plt.savefig(os.path.join(results_dir, f'X_vs_Time_{i+1}.png'))
+
+    # Y Position vs Time
+    plt.subplot(3, 1, 2)  # 3 rows, 1 column, 2nd subplot
+    plt.plot(times, y_vals, label='Y Position')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Y Position (m)')
+    plt.title('Y Position vs. Time')
+    plt.legend()
+    plt.savefig(os.path.join(results_dir, f'Y_vs_Time_{i+1}.png'))
+    
+
+    # Z Position vs Time (Altitude)
+    plt.subplot(3, 1, 3)  # 3 rows, 1 column, 3rd subplot
+    plt.plot(times, z_vals, label='Altitude')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Altitude (m)')
+    plt.title('Altitude vs. Time')
+    plt.legend()
+    plt.savefig(os.path.join(results_dir, f'Z_vs_Time_{i+1}.png'))
 
 
 df = pd.DataFrame(results)
-df.to_excel('simulation_results.xlsx', index=False)
+df.to_excel(os.path.join(results_dir,'simulation_results.xlsx'), index=False)
 
 # Print recorded flight path
 # print("Flight path:")
@@ -214,32 +261,5 @@ df.to_excel('simulation_results.xlsx', index=False)
 # Plotting the flight path
 # ax.plot(x_vals, y_vals, z_vals, marker='o')
 
-plt.figure(figsize=(12, 10))
 
-# X Position vs Time
-plt.subplot(3, 1, 1)  # 3 rows, 1 column, 1st subplot
-plt.plot(times, x_vals, label='X Position')
-plt.xlabel('Time (s)')
-plt.ylabel('X Position (m)')
-plt.title('X Position vs. Time')
-plt.legend()
-
-# Y Position vs Time
-plt.subplot(3, 1, 2)  # 3 rows, 1 column, 2nd subplot
-plt.plot(times, y_vals, label='Y Position')
-plt.xlabel('Time (s)')
-plt.ylabel('Y Position (m)')
-plt.title('Y Position vs. Time')
-plt.legend()
-
-# Z Position vs Time (Altitude)
-plt.subplot(3, 1, 3)  # 3 rows, 1 column, 3rd subplot
-plt.plot(times, z_vals, label='Altitude')
-plt.xlabel('Time (s)')
-plt.ylabel('Altitude (m)')
-plt.title('Altitude vs. Time')
-plt.legend()
-
-plt.tight_layout()
-plt.show()
 

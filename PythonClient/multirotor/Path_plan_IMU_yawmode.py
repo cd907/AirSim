@@ -32,7 +32,7 @@ def multiplicative_noise(value, mean=0.0, std_dev=1.0, seed=None):
 
 
 class PIDController:
-    def __init__(self, kp_val=0.1, ki_val=0.01, kd_val=0.01,
+    def __init__(self, kp_val=10, ki_val=1, kd_val=25,
                  min_output_val=-1, max_output_val=1):
         self.kp = kp_val
         self.ki = ki_val
@@ -176,7 +176,7 @@ for i, std in enumerate(pos_noise_std):
         # print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
 
     # Land
-    client.landAsync().join()
+    client.reset()
     client.armDisarm(False)
     client.enableApiControl(False)
     

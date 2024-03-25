@@ -23,12 +23,6 @@ def add_noise(position, mean=0.0, std_dev=1.0, seed=None):
 
     return noisy_position_vector3r
 
-def add_gaussian_noise(value, mean=0.0, std_dev=1.0, seed=None):
-    if seed is not None:
-        np.random.seed(seed)
-    noisy_value = value + np.random.normal(mean, std_dev)
-    return noisy_value
-
 class PIDController:
     def __init__(self, kp_val=1, ki_val=0.0, kd_val=10,
                   max_output_val=1):
@@ -37,7 +31,6 @@ class PIDController:
         self.kd = kd_val
         self.integral = 0
         self.prev_error = 0
-        self.min_output = min_output_val
         self.max_output = max_output_val
 
     
