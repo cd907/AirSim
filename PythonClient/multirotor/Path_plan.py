@@ -227,8 +227,7 @@ for i, std in enumerate(noise_std):
     plt.ylabel('X Position (m)')
     plt.title('X Position vs. Time')
     plt.legend()
-    plt.savefig(os.path.join(results_dir, f'X_vs_Time_{i+1}.png'))
-
+    
     # Y Position vs Time
     plt.subplot(3, 1, 2)  # 3 rows, 1 column, 2nd subplot
     plt.plot(times, y_vals, label='Y Position')
@@ -236,9 +235,7 @@ for i, std in enumerate(noise_std):
     plt.ylabel('Y Position (m)')
     plt.title('Y Position vs. Time')
     plt.legend()
-    plt.savefig(os.path.join(results_dir, f'Y_vs_Time_{i+1}.png'))
     
-
     # Z Position vs Time (Altitude)
     plt.subplot(3, 1, 3)  # 3 rows, 1 column, 3rd subplot
     plt.plot(times, z_vals, label='Altitude')
@@ -246,7 +243,7 @@ for i, std in enumerate(noise_std):
     plt.ylabel('Altitude (m)')
     plt.title('Altitude vs. Time')
     plt.legend()
-    plt.savefig(os.path.join(results_dir, f'Z_vs_Time_{i+1}.png'))
+    plt.savefig(os.path.join(results_dir, f'XYZ_vs_Time_{i+1}.png'))
 
 
 df = pd.DataFrame(results)
