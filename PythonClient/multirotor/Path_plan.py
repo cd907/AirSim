@@ -183,13 +183,13 @@ for i, std in enumerate(noise_std):
         'Total Flight Time (s)': total_time,
         'Collision Count': collision_count,
         'Average Distance from Waypoints (m)': average_waypoint_distance,
-        'PID X kp_val': pid_x.kp_val,  # Save kp_val for PID X
-        'PID X ki_val': pid_x.ki_val,  # Save ki_val for PID X
-        'PID X kd_val': pid_x.kd_val,  # Save kd_val for PID X
+        'PID X kp_val': pid_x.kp,  # Save kp_val for PID X
+        'PID X ki_val': pid_x.ki,  # Save ki_val for PID X
+        'PID X kd_val': pid_x.kd,  # Save kd_val for PID X
         'PID X max_output_val': pid_x.max_output,  # Save max_output_val for PID X
-        'PID Y kp_val': pid_y.kp_val,  # Save kp_val for PID Y
-        'PID Y ki_val': pid_y.ki_val,  # Save ki_val for PID Y
-        'PID Y kd_val': pid_y.kd_val,  # Save kd_val for PID Y
+        'PID Y kp_val': pid_y.kp,  # Save kp_val for PID Y
+        'PID Y ki_val': pid_y.ki,  # Save ki_val for PID Y
+        'PID Y kd_val': pid_y.kd,  # Save kd_val for PID Y
         'PID Y max_output_val': pid_y.max_output  # Save max_output_val for PID Y
     })
     
