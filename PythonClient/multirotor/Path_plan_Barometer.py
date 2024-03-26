@@ -258,7 +258,7 @@ for i, std in enumerate(noise_std):
 
 
 df = pd.DataFrame(results)
-df.to_excel('simulation_results.xlsx', index=False)
+df.to_excel(os.path.join(results_dir,'simulation_results.xlsx'), index=False)
 
 # Print recorded flight path
 # print("Flight path:")
