@@ -39,6 +39,11 @@ for waypoint in waypoints:
         position = state.position
         orientation = state.orientation  # Quaternion
 
+        roll, pitch, yaw = airsim.to_eularian_angles(orientation)
+        # Convert yaw to degrees and print
+        yaw_degrees = math.degrees(yaw)
+        print(f"Yaw (degrees): {yaw_degrees}")
+
         # Record position and orientation
         flight_path.append((position, orientation))
 

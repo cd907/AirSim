@@ -129,7 +129,7 @@ for i, std in enumerate(yaw_noise_std):
             # noisy_position = add_noise(position, mean=0.0, std_dev=pos_noise_std)  # Adjust mean and std_dev as needed
 
             # Add Gaussian noise to yaw
-            noisy_yaw = multiplicative_noise(yaw, mean=0.0, std_dev=yaw_noise_std)
+            noisy_yaw = multiplicative_noise(yaw, mean=0.0, std_dev=std)
       
 
             # Calculate error in X-Y plane, although not require to control vx,vy, but to use yaw_mode API here,
@@ -205,7 +205,7 @@ for i, std in enumerate(yaw_noise_std):
         'Total Distance Traveled (m)': total_distance,
         'Total Flight Time (s)': total_time,
         'Collision Count': collision_count,
-        'Average Distance from Waypoints (m)': average_waypoint_distance
+        'Average Distance from Waypoints (m)': average_waypoint_distance,
         'PID X kp_val': pid_x.kp,  # Save kp_val for PID X
         'PID X ki_val': pid_x.ki,  # Save ki_val for PID X
         'PID X kd_val': pid_x.kd,  # Save kd_val for PID X
@@ -213,11 +213,11 @@ for i, std in enumerate(yaw_noise_std):
         'PID Y kp_val': pid_y.kp,  # Save kp_val for PID Y
         'PID Y ki_val': pid_y.ki,  # Save ki_val for PID Y
         'PID Y kd_val': pid_y.kd,  # Save kd_val for PID Y
-        'PID Y max_output_val': pid_y.max_output  # Save max_output_val for PID Y
+        'PID Y max_output_val': pid_y.max_output,  # Save max_output_val for PID Y
         'PID Yaw kp_val': pid_yaw.kp,  # Save kp_val for PID X
         'PID Yaw ki_val': pid_yaw.ki,  # Save ki_val for PID X
         'PID Yaw kd_val': pid_yaw.kd,  # Save kd_val for PID X
-        'PID Yaw max_output_val': pid_yaw.max_output,  # Save max_output_val for PID X
+        'PID Yaw max_output_val': pid_yaw.max_output  # Save max_output_val for PID X
         })
     
     # Extracting X, Y, Z coordinates
