@@ -225,7 +225,7 @@ for i, std in enumerate(noise_std):
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
     ax.set_title(f'3D Flight Path Visualization with Altitude Noise std {std}')
-    plt.savefig(f'flight_path_simulation_{i+1}.png')
+    plt.savefig(os.path.join(results_dir, f'flight_path_simulation_{i+1}.png'))
     plt.clf()
 
     plt.figure(figsize=(12, 10))
