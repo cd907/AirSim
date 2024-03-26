@@ -118,7 +118,7 @@ for i, std in enumerate(noise_std):
             # Add Gaussian noise to drone's current position data
             noisy_position = add_noise(position, mean=0.0, std_dev=std)  # Adjust mean and std_dev as needed
 
-            # Record position and orientation
+            # Record position and time
             flight_path.append(( now-start_time, position))
 
             # Calculate distance traveled since last position
