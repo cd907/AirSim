@@ -82,7 +82,7 @@ pid_x = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
 pid_y = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
                   max_output_val=5)
 pid_yaw = PIDController(kp_val=2.5, ki_val=0.0, kd_val=0.0,
-                  max_output_val=3.0)
+                  max_output_val=3.14159265359)
 
 # Define noise standard deviations for different simulations
 # pos_noise_std = 0.0

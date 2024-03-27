@@ -1,6 +1,7 @@
 import airsim
 import numpy as np
 import time
+from datetime import datetime
 import math
 import os
 import pandas as pd
@@ -8,44 +9,57 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Function to check proximity between current position and target waypoint
-def is_close(current, target, threshold=1.0):
+def is_close(current, target, threshold=0.1):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
 # Function to add Gaussian noise to accelaration data
-def add_noise(data, mean=0.0, std_dev=1.0, seed=None):
+# def add_noise(data, mean=0.0, std_dev=1.0, seed=None):
+#     if seed is not None:
+#         np.random.seed(seed)
+
+#     data_array = np.array([data.x_val, data.y_val, data.z_val])
+
+#     # Add random Gaussian noise
+#     noisy_data_array = data_array + np.random.normal(mean, std_dev, data_array.shape)
+#     noisy_data_vector3r = airsim.Vector3r(noisy_data_array[0], noisy_data_array[1], noisy_data_array[2])
+
+#     return noisy_data_vector3r
+
+def multiplicative_noise(value, mean=0.0, std_dev=1.0, seed=None):
     if seed is not None:
         np.random.seed(seed)
+    noise_factor = np.random.normal(mean, std_dev)
+    return value * noise_factor
 
-    data_array = np.array([data.x_val, data.y_val, data.z_val])
-
-    # Add random Gaussian noise
-    noisy_data_array = data_array + np.random.normal(mean, std_dev, data_array.shape)
-    noisy_data_vector3r = airsim.Vector3r(noisy_data_array[0], noisy_data_array[1], noisy_data_array[2])
-
-    return noisy_data_vector3r
-
-def calculate_desired_pitch(z1, z2, horizontal_distance):
-    if horizontal_distance > 0:
-        return math.atan2(z2 - z1, horizontal_distance)
-    return 0
+# def calculate_desired_pitch(z1, z2, horizontal_distance):
+#     if horizontal_distance > 0:
+#         return math.atan2(z2 - z1, horizontal_distance)
+#     return 0
 
 class PIDController:
-    def __init__(self, kp_val=0.1, ki_val=0.01, kd_val=0.01,
-                 min_output_val=-1, max_output_val=1):
+    def __init__(self, kp_val=0.25, ki_val=0.0, kd_val=0.0,
+                max_output_val=10):
         self.kp = kp_val
         self.ki = ki_val
         self.kd = kd_val
         self.integral = 0
         self.prev_error = 0
-        self.min_output = min_output_val
         self.max_output = max_output_val
 
     
     def update(self, error, dt):
-        self.integral += error * dt
+        # self.integral += error * dt
+        self.integral += self.ki * 0.5 * (error + self.prev_error)*dt # Trapezoidal Integration
+        # Prevent integral windup by limiting the integral term
+        self.integral = max(min(self.integral, self.max_output), -self.max_output)
         derivative = (error - self.prev_error) / dt if dt > 0 else 0
+        pid_output = self.kp * error + self.integral + self.kd * derivative
+    
+        # Limit the PID output
+        pid_output = max(min(pid_output, self.max_output), -self.max_output)
+
         self.prev_error = error
-        return self.kp * error + self.ki * self.integral + self.kd * derivative
+        return pid_output
 
 # Define waypoints in mission (x, y, z in meters)
 waypoints = [
@@ -56,19 +70,27 @@ waypoints = [
     airsim.Vector3r(0, 0, -10)
 ]
 
+# Generate a timestamp
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+# Create a new directory for this run
+results_dir = f'results_{timestamp}'
+os.makedirs(results_dir, exist_ok=True)
+
 csv_file_name = 'simulation_results.csv'
-lidar_data_dir = "lidar_data"
-os.makedirs(lidar_data_dir, exist_ok=True)
+
+# lidar_data_dir = "lidar_data"
+# os.makedirs(lidar_data_dir, exist_ok=True)
 
 # Initialize PID controllers for X, Y, Z axes
-pid_yaw = PIDController()
-pid_pitch = PIDController()
+pid_yaw = PIDController(kp_val=2.5, ki_val=0.0, kd_val=0.0,
+                  max_output_val=3.14159265359)
+# pid_pitch = PIDController()
 
-# Define noise variances for different simulations
-noise_variances = [0.0, 0.01, 0.1, 1.0]
+# Define yaw noise variances for different simulations
+noise_std = [0.0, 0.01, 0.05, 0.1, 0.3]
 results = []
 
-for i, variance in enumerate(noise_variances):
+for i, std in enumerate(noise_std):
     flight_path = []
     total_distance = 0
     waypoint_distances = []
@@ -101,21 +123,21 @@ for i, variance in enumerate(noise_variances):
             orientation = state.orientation  # Quaternion
             roll, pitch, yaw = airsim.to_eularian_angles(orientation)
 
-             # Add Gaussian noise to drone's current position data
-            noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=42)  # Adjust mean and std_dev as needed
-
+            #  # Add Gaussian noise to drone's current position data
+            # noisy_position = add_noise(position, mean=0.0, std_dev=np.sqrt(variance), seed=42)  # Adjust mean and std_dev as needed
+            
+            # Add Gaussian noise to yaw
+            noisy_yaw = multiplicative_noise(yaw, mean=0.0, std_dev=std)
+            
             # Calculate accelarator error in X-Y plane
-            error_x = waypoint.x_val - noisy_position.x_val
-            error_y = waypoint.y_val - noisy_position.y_val
+            error_x = waypoint.x_val - position.x_val
+            error_y = waypoint.y_val - position.y_val
 
-            # Calculate horizontal distance from current point to target
-            horizontal_distance = math.sqrt((error_x) ** 2 + (error_y) ** 2)
+            # # Calculate horizontal distance from current point to target
+            # horizontal_distance = math.sqrt((error_x) ** 2 + (error_y) ** 2)
 
-            # Add noise to roll, pitch, yaw
-            noisy_orientation = add_noise(orientation, mean=0.0, std_dev=np.sqrt(variance), seed=42)
-
-            # Record position and orientation
-            flight_path.append((position, orientation))
+            # Record position and time
+            flight_path.append(( now-start_time, position))
 
             # Calculate distance traveled since last position
             distance = np.linalg.norm(position.to_numpy_array() - prev_position)
@@ -125,21 +147,21 @@ for i, variance in enumerate(noise_variances):
             # use PID Control logic on angle level and moving to the next waypoint asynchronously
 
             # Calculate desired yaw and pitch
-            desired_yaw = math.atan2(error_x, error_y)
-            desired_pitch = calculate_desired_pitch(noisy_position.z_val, waypoint.z_val, horizontal_distance)
+            desired_yaw = math.atan2(error_y, error_x)
+            # desired_pitch = calculate_desired_pitch(noisy_position.z_val, waypoint.z_val, horizontal_distance)
 
             # Update PID controllers
-            # Calculate errors on yaw and pitch
-            error_yaw = desired_yaw - yaw
-            error_pitch = desired_pitch - pitch
+            # Calculate errors on yaw
+            error_yaw = desired_yaw - noisy_yaw
+            # error_pitch = desired_pitch - pitch
             
             control_yaw = pid_yaw.update(error_yaw, dt)
-            control_pitch = pid_pitch.update(error_pitch, dt)
+            # control_pitch = pid_pitch.update(error_pitch, dt)
         
         # regulate the velocity in X,Y axis, To BE completed!
             # max(min_value, min(val, max_value))
 
-            client.moveByRollPitchYawZAsync(roll=0, pitch=control_pitch, yaw=control_yaw, z=waypoint.z_val, duration=1)
+            client.moveByRollPitchYawZAsync(roll=0, pitch=0, yaw=control_yaw, z=waypoint.z_val, duration=dt)
 
             # Check for collision
             collision_info = client.simGetCollisionInfo()
@@ -168,7 +190,7 @@ for i, variance in enumerate(noise_variances):
         # print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
 
     # Land
-    client.landAsync().join()
+    client.reset()
     client.armDisarm(False)
     client.enableApiControl(False)
     
@@ -183,12 +205,18 @@ for i, variance in enumerate(noise_variances):
         'Total Distance Traveled (m)': total_distance,
         'Total Flight Time (s)': total_time,
         'Collision Count': collision_count,
-        'Average Distance from Waypoints (m)': average_waypoint_distance})
+        'Average Distance from Waypoints (m)': average_waypoint_distance,
+        'PID Yaw kp_val': pid_yaw.kp,  # Save kp_val for PID X
+        'PID Yaw ki_val': pid_yaw.ki,  # Save ki_val for PID X
+        'PID Yaw kd_val': pid_yaw.kd,  # Save kd_val for PID X
+        'PID Yaw max_output_val': pid_yaw.max_output
+        })
     
     # Extracting X, Y, Z coordinates
-    x_vals = [pos.x_val for pos, _ in flight_path]
-    y_vals = [pos.y_val for pos, _ in flight_path]
-    z_vals = [pos.z_val for pos, _ in flight_path]
+    times = [timestamp for timestamp, _ in flight_path]
+    x_vals = [pos.x_val for _, pos  in flight_path]
+    y_vals = [pos.y_val for _, pos  in flight_path]
+    z_vals = [-pos.z_val for _, pos  in flight_path]
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -205,13 +233,40 @@ for i, variance in enumerate(noise_variances):
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_title(f'3D Flight Path Visualization with Noise Variance {variance}')
-    plt.savefig(f'flight_path_simulation_{i+1}.png')
+    ax.set_title(f'3D Flight Path Visualization with yaw Noise std {std}')
+    plt.savefig(os.path.join(results_dir, f'flight_path_simulation_{i+1}.png'))
     plt.clf()
+
+    plt.figure(figsize=(12, 10))
+
+    # X Position vs Time
+    plt.subplot(3, 1, 1)  # 3 rows, 1 column, 1st subplot
+    plt.plot(times, x_vals, label='X Position')
+    plt.xlabel('Time (s)')
+    plt.ylabel('X Position (m)')
+    plt.title('X Position vs. Time')
+    plt.legend()
+    
+    # Y Position vs Time
+    plt.subplot(3, 1, 2)  # 3 rows, 1 column, 2nd subplot
+    plt.plot(times, y_vals, label='Y Position')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Y Position (m)')
+    plt.title('Y Position vs. Time')
+    plt.legend()
+
+    # Z Position vs Time (Altitude)
+    plt.subplot(3, 1, 3)  # 3 rows, 1 column, 3rd subplot
+    plt.plot(times, z_vals, label='Altitude')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Altitude (m)')
+    plt.title('Altitude vs. Time')
+    plt.legend()
+    plt.savefig(os.path.join(results_dir, f'XYZ_vs_Time_{i+1}.png'))
 
 
 df = pd.DataFrame(results)
-df.to_excel('simulation_results.xlsx', index=False)
+df.to_excel(os.path.join(results_dir,'simulation_results.xlsx'), index=False)
 
 # Print recorded flight path
 # print("Flight path:")
