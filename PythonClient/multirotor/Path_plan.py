@@ -112,7 +112,7 @@ for i, std in enumerate(noise_std):
             # Get current position
             state = client.simGetVehiclePose()
             position = state.position
-            orientation = state.orientation  # Quaternion
+            orientation = state.orientation 
 
             print(position)
             # Add Gaussian noise to drone's current position data

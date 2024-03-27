@@ -30,7 +30,7 @@ flight_path = []
 
 for waypoint in waypoints:
     # Move to the next waypoint asynchronously
-    client.moveToPositionAsync(waypoint.x_val, waypoint.y_val, waypoint.z_val, 5)
+    client.moveToPositionAsync(waypoint.x_val, waypoint.y_val, waypoint.z_val, 1, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=90))
 
     # Continuously sample state until the drone is close to the waypoint
     while not is_close(client.simGetVehiclePose().position, waypoint):
