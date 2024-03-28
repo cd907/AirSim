@@ -25,7 +25,7 @@ def add_noise(data, mean=0.0, std_dev=1.0, seed=None):
 
     return noisy_data_vector3r
 
-def multiplicative_noise(value, mean=0.0, std_dev=1.0, seed=None):
+def multiplicative_noise(value, mean=1.0, std_dev=1.0, seed=None):
     if seed is not None:
         np.random.seed(seed)
     noise_factor = np.random.normal(mean, std_dev)
@@ -163,8 +163,9 @@ for i, std in enumerate(yaw_noise_std):
             print (control_yaw)
         # regulate the velocity in X,Y axis, To BE completed!
             # max(min_value, min(val, max_value))
-
-            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=math.degrees(control_yaw)))
+            client.rotateToYawAsync(yaw_degrees).join() 
+            time.sleep(0.1) 
+            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt, drivetrain=1, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=math.degrees(control_yaw)))
 
 
             # Check for collision
