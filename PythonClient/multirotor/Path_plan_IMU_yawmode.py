@@ -129,7 +129,7 @@ for i, std in enumerate(yaw_noise_std):
             # noisy_position = add_noise(position, mean=0.0, std_dev=pos_noise_std)  # Adjust mean and std_dev as needed
 
             # Add Gaussian noise to yaw
-            noisy_yaw = multiplicative_noise(yaw, mean=0.0, std_dev=std)
+            noisy_yaw = multiplicative_noise(yaw, mean=1.0, std_dev=std)
       
 
             # Calculate error in X-Y plane, although not require to control vx,vy, but to use yaw_mode API here,
