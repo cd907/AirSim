@@ -180,10 +180,10 @@ for i, std in enumerate(yaw_noise_std):
             control_pitch = pid_pitch.update(error_pitch, dt)
 
             # Calculate altitude error
-            altitude_error = waypoint.z_val - position.z_val
+            altitude_error = position.z_val - waypoint.z_val
             desired_throttle = pid_throttle.update(altitude_error, dt)
             # Ensure Desired throttle is between 0.0 to 1.0
-            desired_throttle = max(min(throttle, 1.0), 0.0)
+            desired_throttle = max(min(desired_throttle, 1.0), 0.0)
 
         # regulate the velocity in X,Y axis, To BE completed!
             # max(min_value, min(val, max_value))
