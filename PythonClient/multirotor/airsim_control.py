@@ -25,31 +25,50 @@ def add_noise(position, mean=0.0, std_dev=1.0, seed=None):
     return noisy_position_vector3r
 
 class PIDController:
-    def __init__(self, kp_val=1, ki_val=0, kd_val=10,
-                  max_output_val=1):
-        self.kp = kp_val
-        self.ki = ki_val
-        self.kd = kd_val
-        self.integral = 0
-        self.prev_error = 0
-        self.max_output = max_output_val
+    def __init__(self, kp_x=1, ki_x=0, kd_x=10, max_output_x=1, kp_y=1, ki_y=0, kd_y=10, max_output_y=1):
+        self.kp_x = kp_x
+        self.ki_x = ki_x
+        self.kd_x = kd_x
+        self.integral_x = 0
+        self.prev_error_x = 0
+        self.max_output_x = max_output_x
 
-    
-    def update(self, error, dt):
-    
-        self.integral += self.ki * 0.5 * (error + self.prev_error)*dt # Trapezoidal Integration
-        # Prevent integral windup by limiting the integral term
-        self.integral = max(min(self.integral, self.max_output), -self.max_output)
+        self.kp_y = kp_y
+        self.ki_y = ki_y
+        self.kd_y = kd_y
+        self.integral_y = 0
+        self.prev_error_y = 0
+        self.max_output_y = max_output_y
 
-        derivative = (error - self.prev_error) / dt if dt > 0 else 0
+    def update_controls(self, error_x, error_y, dt):
+        # Update integral for X
+        self.integral_x += self.ki_x * 0.5 * (error_x + self.prev_error_x) * dt
+        self.integral_x = max(min(self.integral_x, self.max_output_x), -self.max_output_x)
 
-        pid_output = self.kp * error + self.integral + self.kd * derivative
-    
-        # Limit the PID output
-        pid_output = max(min(pid_output, self.max_output), -self.max_output)
+        # Calculate derivative for X
+        derivative_x = (error_x - self.prev_error_x) / dt if dt > 0 else 0
 
-        self.prev_error = error
-        return pid_output
+        # Calculate output for X
+        control_x = self.kp_x * error_x + self.integral_x + self.kd_x * derivative_x
+        control_x = max(min(control_x, self.max_output_x), -self.max_output_x)
+
+        # Update integral for Y
+        self.integral_y += self.ki_y * 0.5 * (error_y + self.prev_error_y) * dt
+        self.integral_y = max(min(self.integral_y, self.max_output_y), -self.max_output_y)
+
+        # Calculate derivative for Y
+        derivative_y = (error_y - self.prev_error_y) / dt if dt > 0 else 0
+
+        # Calculate output for Y
+        control_y = self.kp_y * error_y + self.integral_y + self.kd_y * derivative_y
+        control_y = max(min(control_y, self.max_output_y), -self.max_output_y)
+
+        # Update previous errors
+        self.prev_error_x = error_x
+        self.prev_error_y = error_y
+
+        return control_x, control_y
+
 
 # Define waypoints in mission (x, y, z in meters)
 waypoints = [
@@ -68,17 +87,17 @@ results_dir = f'results_{timestamp}'
 os.makedirs(results_dir, exist_ok=True)
 
 csv_file_name = 'simulation_results.csv'
+sensor_data = []
+results = []
 
+# Initialize PID controllers for X and Y axes with separate parameters
+pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0, max_output_x=10,
+                               kp_y=0.5, ki_y=0, kd_y=0, max_output_y=10)
 
-# Initialize PID controllers for X, Y, Z axes
-pid_x = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
-                  max_output_val=10)
-pid_y = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
-                  max_output_val=10)
 
 # Define noise variances for different simulations
 noise_std = [0.0, 0.01, 0.1, 1.0, 2.0, 5.0]
-results = []
+
 
 for i, std in enumerate(noise_std):
     flight_path = []
@@ -107,6 +126,33 @@ for i, std in enumerate(noise_std):
             dt = now - last_time
             last_time = now
 
+            # Fetch sensor and state data
+            imu_data = client.getImuData()
+            barometer_data = client.getBarometerData()
+            gps_data = client.getGpsData()
+
+            # Record IMU, Barometer, GPS sensor data
+            data_entry = {
+                'Time': now - start_time,
+                'Angular Velocity X': imu_data.angular_velocity.x_val,
+                'Angular Velocity Y': imu_data.angular_velocity.y_val,
+                'Angular Velocity Z': imu_data.angular_velocity.z_val,
+                'Linear Acceleration X': imu_data.linear_acceleration.x_val,
+                'Linear Acceleration Y': imu_data.linear_acceleration.y_val,
+                'Linear Acceleration Z': imu_data.linear_acceleration.z_val,
+                'Orientation W': imu_data.orientation.w_val,
+                'Orientation X': imu_data.orientation.x_val,
+                'Orientation Y': imu_data.orientation.y_val,
+                'Orientation Z': imu_data.orientation.z_val,
+                'Barometer Altitude': barometer_data.altitude,
+                'Barometer Pressure': barometer_data.pressure,
+                'GPS Latitude': gps_data.geo_point.latitude,
+                'GPS Longitude': gps_data.geo_point.longitude,
+                'GPS Altitude': gps_data.geo_point.altitude
+            }
+
+            sensor_data.append(data_entry)
+
             # Get current position
             state = client.simGetVehiclePose()
             position = state.position
@@ -128,11 +174,11 @@ for i, std in enumerate(noise_std):
             error_x = waypoint.x_val - noisy_position.x_val
             error_y = waypoint.y_val - noisy_position.y_val
 
-            # Update PID controllers
-            control_x = pid_x.update(error_x, dt)
-            control_y = pid_y.update(error_y, dt)
-    
-            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt)
+            # Update PID controls for X and Y simultaneously
+            control_x, control_y = pid_controller.update_controls(error_x, error_y, dt)
+
+            # Apply controls
+            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt).join()
 
             # Check for collision
             collision_info = client.simGetCollisionInfo()
@@ -161,14 +207,14 @@ for i, std in enumerate(noise_std):
         'Total Flight Time (s)': total_time,
         'Collision Count': collision_count,
         'Average Distance from Waypoints (m)': average_waypoint_distance,
-        'PID X kp_val': pid_x.kp,  
-        'PID X ki_val': pid_x.ki,  
-        'PID X kd_val': pid_x.kd,  
-        'PID X max_output_val': pid_x.max_output,  
-        'PID Y kp_val': pid_y.kp,  
-        'PID Y ki_val': pid_y.ki,  
-        'PID Y kd_val': pid_y.kd,  
-        'PID Y max_output_val': pid_y.max_output  
+        'PID X kp_val': pid_controller.kp_x,  
+        'PID X ki_val': pid_controller.ki_x,  
+        'PID X kd_val': pid_controller.kd_x,  
+        'PID X max_output_val': pid_controller.max_output_x,  
+        'PID Y kp_val': pid_controller.kp_y,  
+        'PID Y ki_val': pid_controller.ki_y,  
+        'PID Y kd_val': pid_controller.kd_y,  
+        'PID Y max_output_val': pid_controller.max_output_y  
     })
     
     # Extracting X, Y, Z coordinates
@@ -227,5 +273,7 @@ for i, std in enumerate(noise_std):
 df = pd.DataFrame(results)
 df.to_excel(os.path.join(results_dir,'simulation_results.xlsx'), index=False)
 
+sensor_data_df = pd.DataFrame(sensor_data)
+sensor_data_df.to_excel(os.path.join(results_dir, 'sensor_data.xlsx'), index=False)
 
 
