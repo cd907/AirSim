@@ -12,18 +12,6 @@ from mpl_toolkits.mplot3d import Axes3D
 def is_close(current, target, threshold=0.1):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
-# Function to add Gaussian noise to accelaration data
-def add_noise(data, mean=0.0, std_dev=1.0, seed=None):
-    if seed is not None:
-        np.random.seed(seed)
-
-    data_array = np.array([data.x_val, data.y_val, data.z_val])
-
-    # Add random Gaussian noise
-    noisy_data_array = data_array + np.random.normal(mean, std_dev, data_array.shape)
-    noisy_data_vector3r = airsim.Vector3r(noisy_data_array[0], noisy_data_array[1], noisy_data_array[2])
-
-    return noisy_data_vector3r
 
 def multiplicative_noise(value, mean=1.0, std_dev=1.0, seed=None):
     if seed is not None:
@@ -31,10 +19,6 @@ def multiplicative_noise(value, mean=1.0, std_dev=1.0, seed=None):
     noise_factor = np.random.normal(mean, std_dev)
     return value * noise_factor
 
-def calculate_desired_pitch(z1, z2, horizontal_distance):
-    if horizontal_distance > 0:
-        return math.atan2(z2 - z1, horizontal_distance)
-    return 0
 
 class PIDController:
     def __init__(self, kp_val=0.25, ki_val=0.0, kd_val=0.0,
@@ -48,7 +32,7 @@ class PIDController:
 
     
     def update(self, error, dt):
-        # self.integral += error * dt
+        
         self.integral += self.ki * 0.5 * (error + self.prev_error)*dt # Trapezoidal Integration
         # Prevent integral windup by limiting the integral term
         self.integral = max(min(self.integral, self.max_output), -self.max_output)
@@ -72,13 +56,11 @@ waypoints = [
 
 # Generate a timestamp
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-# Create a new directory for this run
 results_dir = f'results_{timestamp}'
 os.makedirs(results_dir, exist_ok=True)
 
 csv_file_name = 'simulation_results.csv'
-# lidar_data_dir = "lidar_data"
-# os.makedirs(lidar_data_dir, exist_ok=True)
+
 
 # Initialize PID controllers for X, Y axes
 pid_x = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
@@ -88,15 +70,7 @@ pid_y = PIDController(kp_val=0.5, ki_val=0, kd_val=0,
 pid_yaw = PIDController(kp_val=2.5, ki_val=0.0, kd_val=0.0,
                   max_output_val=3.14159265359)
 
-pid_pitch = PIDController(kp_val=0.5, ki_val=0.0, kd_val=0.0,
-                  max_output_val=3.14159265359)
-
-# throttle don't know how to control, just fix at 0.1 simply
-pid_throttle = PIDController(kp_val=0.3, ki_val=0.0, kd_val=0.0,
-                  max_output_val=1.0)
-
 # Define noise standard deviations for different simulations
-# pos_noise_std = 0.0
 yaw_noise_std = [0.0, 0.01, 0.05, 0.1, 0.3]
 results = []
 
@@ -131,28 +105,15 @@ for i, std in enumerate(yaw_noise_std):
             state = client.simGetVehiclePose()
             position = state.position
             orientation = state.orientation  # Quaternion
-            print(orientation)
-
             roll, pitch, yaw = airsim.to_eularian_angles(orientation)
             # Convert yaw to degrees and print
             yaw_degrees = math.degrees(yaw)
-            print(f"Yaw (degrees): {yaw_degrees}")
 
-            # Add Gaussian noise to yaw and pitch
+            # Add Gaussian noise to yaw
             noisy_yaw = multiplicative_noise(yaw, mean=1.0, std_dev=std)
-            noisy_pitch = multiplicative_noise(pitch, mean=1.0, std_dev=std)
-            
-
-            # Calculate error in X-Y plane, although not require to control vx,vy, but to use yaw_mode API here,
-            # must bring in vx,vy
             error_x = waypoint.x_val - position.x_val
             error_y = waypoint.y_val - position.y_val
-
-            # Calculate horizontal distance from current point to target
-            horizontal_distance = math.sqrt(error_x ** 2 + error_y ** 2)
-            desired_pitch = calculate_desired_pitch(waypoint.z_val, position.z_val, horizontal_distance)
-
-            print(position.x_val, position.y_val)
+           
             
               # Record position and time
             flight_path.append(( now-start_time, position))
@@ -174,24 +135,11 @@ for i, std in enumerate(yaw_noise_std):
             # Update PID controllers
             # Calculate errors on yaw
             error_yaw = desired_yaw - noisy_yaw
-            
             control_yaw = pid_yaw.update(error_yaw, dt)
-            print (control_yaw)
-
-            error_pitch = desired_pitch - noisy_pitch
-            control_pitch = pid_pitch.update(error_pitch, dt)
-
-            # Calculate altitude error
-            altitude_error = position.z_val - waypoint.z_val
-            desired_throttle = pid_throttle.update(altitude_error, dt)
-            # Ensure Desired throttle is between 0.0 to 1.0
-            desired_throttle = max(min(desired_throttle, 1.0), 0.0)
-
-        # regulate the velocity in X,Y axis, To BE completed!
-            # max(min_value, min(val, max_value))
+           
             client.rotateToYawAsync(yaw_degrees).join()
-        # should be in body frame for the pitch and yaw angles in radians, but here are in world frame actually???
-            client.moveByRollPitchYawThrottleAsync(roll=0.0, pitch=control_pitch, yaw=control_yaw, throttle=desired_throttle, duration=dt)
+            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt, drivetrain=1, yaw_mode=airsim.YawMode(is_rate=False, yaw_or_rate=math.degrees(control_yaw)))
+
 
             # Check for collision
             collision_info = client.simGetCollisionInfo()
@@ -200,24 +148,13 @@ for i, std in enumerate(yaw_noise_std):
                 print("Collision detected!")
                 collision_count += 1
             
-            # Sleep for a short duration to avoid excessive sampling
+            # Sleep to avoid excessive sampling
             time.sleep(0.1)
 
-        # Calculate distance from waypoint (considering it reached)
+        # Calculate distance from waypoint
         waypoint_distance = np.linalg.norm(client.simGetVehiclePose().position.to_numpy_array() - waypoint.to_numpy_array())
         waypoint_distances.append(waypoint_distance)
 
-        # # Retrieve LiDAR data at current position
-        # lidar_data = client.getLidarData()
-        # if len(lidar_data.point_cloud) < 3:
-        #     continue
-        # points = np.array(lidar_data.point_cloud, dtype=np.float32).reshape(-1, 3)
-        
-        # # Save LiDAR data to a file
-        # lidar_filename = os.path.join(lidar_data_dir, f"waypoint_{idx+1}_lidar_data.csv")
-        # np.savetxt(lidar_filename, points, delimiter=",", fmt='%f', header='x,y,z', comments='')
-
-        # print(f"Reached waypoint {idx+1}, LiDAR data saved to {lidar_filename}")
 
     # Land
     client.reset()
@@ -232,26 +169,18 @@ for i, std in enumerate(yaw_noise_std):
         'Total Flight Time (s)': total_time,
         'Collision Count': collision_count,
         'Average Distance from Waypoints (m)': average_waypoint_distance,
-        'PID X kp_val': pid_x.kp,  # Save kp_val for PID X
-        'PID X ki_val': pid_x.ki,  # Save ki_val for PID X
-        'PID X kd_val': pid_x.kd,  # Save kd_val for PID X
-        'PID X max_output_val': pid_x.max_output,  # Save max_output_val for PID X
-        'PID Y kp_val': pid_y.kp,  # Save kp_val for PID Y
-        'PID Y ki_val': pid_y.ki,  # Save ki_val for PID Y
-        'PID Y kd_val': pid_y.kd,  # Save kd_val for PID Y
-        'PID Y max_output_val': pid_y.max_output,  # Save max_output_val for PID Y
-        'PID Yaw kp_val': pid_yaw.kp,  # Save kp_val for PID X
-        'PID Yaw ki_val': pid_yaw.ki,  # Save ki_val for PID X
-        'PID Yaw kd_val': pid_yaw.kd,  # Save kd_val for PID X
-        'PID Yaw max_output_val': pid_yaw.max_output,  # Save max_output_val for PID X,
-        'PID Pitch kp_val': pid_pitch.kp,  # Save kp_val for PID X
-        'PID Pitch ki_val': pid_pitch.ki,  # Save ki_val for PID X
-        'PID Pitch kd_val': pid_pitch.kd,  # Save kd_val for PID X
-        'PID Pitch max_output_val': pid_pitch.max_output,  # Save max_output_val for PID X,
-        'PID throttle kp_val': pid_throttle.kp,  # Save kp_val for PID X
-        'PID throttle ki_val': pid_throttle.ki,  # Save ki_val for PID X
-        'PID throttle kd_val': pid_throttle.kd,  # Save kd_val for PID X
-        'PID throttle max_output_val': pid_throttle.max_output  # Save max_output_val for PID X,
+        'PID X kp_val': pid_x.kp,  
+        'PID X ki_val': pid_x.ki,  
+        'PID X kd_val': pid_x.kd,  
+        'PID X max_output_val': pid_x.max_output,  
+        'PID Y kp_val': pid_y.kp,  
+        'PID Y ki_val': pid_y.ki,  
+        'PID Y kd_val': pid_y.kd,  
+        'PID Y max_output_val': pid_y.max_output,  
+        'PID Yaw kp_val': pid_yaw.kp, 
+        'PID Yaw ki_val': pid_yaw.ki,  
+        'PID Yaw kd_val': pid_yaw.kd, 
+        'PID Yaw max_output_val': pid_yaw.max_output
         })
     
     # Extracting X, Y, Z coordinates
@@ -310,13 +239,5 @@ for i, std in enumerate(yaw_noise_std):
 df = pd.DataFrame(results)
 df.to_excel(os.path.join(results_dir,'simulation_results.xlsx'), index=False)
 
-# Print recorded flight path
-# print("Flight path:")
-# for pos, orient in flight_path:
-#     print(f"Position: ({pos.x_val}, {pos.y_val}, {pos.z_val}), Orientation (quaternion): ({orient.x_val}, {orient.y_val}, {orient.z_val}, {orient.w_val})")
-
-
-# Plotting the flight path
-# ax.plot(x_vals, y_vals, z_vals, marker='o')
 
 
