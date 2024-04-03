@@ -86,7 +86,10 @@ timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 results_dir = f'results_{timestamp}'
 os.makedirs(results_dir, exist_ok=True)
 
-csv_file_name = 'simulation_results.csv'
+excel_file_path = os.path.join(results_dir, 'sensor_data.xlsx')
+if not os.path.isfile(excel_file_path):
+    pd.DataFrame().to_excel(excel_file_path)
+
 results = []
 
 # Initialize PID controllers for X and Y axes with separate parameters
@@ -95,7 +98,7 @@ pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0, max_output_x=10,
 
 
 # Define noise variances for different simulations
-noise_std = [0.0, 0.01, 0.1, 1.0, 2.0, 5.0]
+noise_std = [0.0, 0.1, 0.5, 1.0, 2.5, 5.0]
 
 
 for i, std in enumerate(noise_std):
