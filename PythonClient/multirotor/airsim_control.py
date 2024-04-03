@@ -87,7 +87,6 @@ results_dir = f'results_{timestamp}'
 os.makedirs(results_dir, exist_ok=True)
 
 csv_file_name = 'simulation_results.csv'
-sensor_data = []
 results = []
 
 # Initialize PID controllers for X and Y axes with separate parameters
@@ -101,6 +100,7 @@ noise_std = [0.0, 0.01, 0.1, 1.0, 2.0, 5.0]
 
 for i, std in enumerate(noise_std):
     flight_path = []
+    sensor_data = []
     total_distance = 0
     waypoint_distances = []
     collision_count = 0
@@ -146,9 +146,9 @@ for i, std in enumerate(noise_std):
                 'Orientation Z': imu_data.orientation.z_val,
                 'Barometer Altitude': barometer_data.altitude,
                 'Barometer Pressure': barometer_data.pressure,
-                'GPS Latitude': gps_data.geo_point.latitude,
-                'GPS Longitude': gps_data.geo_point.longitude,
-                'GPS Altitude': gps_data.geo_point.altitude
+                'GPS Latitude': gps_data.gnss.geo_point.latitude,
+                'GPS Longitude': gps_data.gnss.geo_point.longitude,
+                'GPS Altitude': gps_data.gnss.geo_point.altitude
             }
 
             sensor_data.append(data_entry)
@@ -178,7 +178,7 @@ for i, std in enumerate(noise_std):
             control_x, control_y = pid_controller.update_controls(error_x, error_y, dt)
 
             # Apply controls
-            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt).join()
+            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt)
 
             # Check for collision
             collision_info = client.simGetCollisionInfo()
@@ -269,11 +269,13 @@ for i, std in enumerate(noise_std):
     plt.legend()
     plt.savefig(os.path.join(results_dir, f'XYZ_vs_Time_{i+1}.png'))
 
+    sensor_data_df = pd.DataFrame(sensor_data)
+    # Save the DataFrame to a sheet named after the noise level in the Excel file
+    with pd.ExcelWriter(os.path.join(results_dir, 'sensor_data.xlsx'), engine='openpyxl', mode='a') as writer:
+        sensor_data_df.to_excel(writer, sheet_name=f'Noise_{std}', index=False)
+
 
 df = pd.DataFrame(results)
 df.to_excel(os.path.join(results_dir,'simulation_results.xlsx'), index=False)
-
-sensor_data_df = pd.DataFrame(sensor_data)
-sensor_data_df.to_excel(os.path.join(results_dir, 'sensor_data.xlsx'), index=False)
 
 
