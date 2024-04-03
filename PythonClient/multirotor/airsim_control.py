@@ -136,22 +136,22 @@ for i, std in enumerate(noise_std):
 
             # Record IMU, Barometer, GPS sensor data
             data_entry = {
-                'Time': now - start_time,
-                'Angular Velocity X': imu_data.angular_velocity.x_val,
-                'Angular Velocity Y': imu_data.angular_velocity.y_val,
-                'Angular Velocity Z': imu_data.angular_velocity.z_val,
-                'Linear Acceleration X': imu_data.linear_acceleration.x_val,
-                'Linear Acceleration Y': imu_data.linear_acceleration.y_val,
-                'Linear Acceleration Z': imu_data.linear_acceleration.z_val,
+                'Time(s)': now - start_time,
+                'Angular Velocity X(rad/s)': imu_data.angular_velocity.x_val,
+                'Angular Velocity Y(rad/s)': imu_data.angular_velocity.y_val,
+                'Angular Velocity Z(rad/s)': imu_data.angular_velocity.z_val,
+                'Linear Acceleration X(ms^-2)': imu_data.linear_acceleration.x_val,
+                'Linear Acceleration Y(ms^-2)': imu_data.linear_acceleration.y_val,
+                'Linear Acceleration Z(ms^-2)': imu_data.linear_acceleration.z_val,
                 'Orientation W': imu_data.orientation.w_val,
                 'Orientation X': imu_data.orientation.x_val,
                 'Orientation Y': imu_data.orientation.y_val,
                 'Orientation Z': imu_data.orientation.z_val,
-                'Barometer Altitude': barometer_data.altitude,
-                'Barometer Pressure': barometer_data.pressure,
-                'GPS Latitude': gps_data.gnss.geo_point.latitude,
-                'GPS Longitude': gps_data.gnss.geo_point.longitude,
-                'GPS Altitude': gps_data.gnss.geo_point.altitude
+                'Barometer Altitude(m)': barometer_data.altitude,
+                'Barometer Pressure(Pa)': barometer_data.pressure,
+                'GPS Latitude(deg)': gps_data.gnss.geo_point.latitude,
+                'GPS Longitude(deg)': gps_data.gnss.geo_point.longitude,
+                'GPS Altitude(m)': gps_data.gnss.geo_point.altitude
             }
 
             sensor_data.append(data_entry)
