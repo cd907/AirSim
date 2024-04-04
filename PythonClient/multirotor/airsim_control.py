@@ -104,6 +104,9 @@ noise_std = [0.0, 0.1, 0.5, 1.0, 2.5, 5.0]
 for i, std in enumerate(noise_std):
     flight_path = []
     sensor_data = []
+    # Initialize a list to store position errors
+    position_errors = []
+
     total_distance = 0
     waypoint_distances = []
     collision_count = 0
@@ -166,6 +169,7 @@ for i, std in enumerate(noise_std):
 
             # Record position and time
             flight_path.append(( now-start_time, position))
+            position_errors.append((waypoint.x_val - position.x_val, waypoint.y_val - position.y_val, waypoint.z_val - position.z_val))
 
             # Calculate distance traveled since last position
             distance = np.linalg.norm(position.to_numpy_array() - prev_position)
@@ -276,6 +280,41 @@ for i, std in enumerate(noise_std):
     # Save the DataFrame to a sheet named after the noise level in the Excel file
     with pd.ExcelWriter(os.path.join(results_dir, 'sensor_data.xlsx'), engine='openpyxl', mode='a') as writer:
         sensor_data_df.to_excel(writer, sheet_name=f'Noise_{std}', index=False)
+
+ 
+    errors = np.array(position_errors)
+    # Plot the errors over time
+    plt.figure(figsize=(12, 10))
+    plt.subplot(3, 1, 1)
+    plt.plot(errors[:, 0], label='Error in X')
+    plt.xlabel('Time Steps')
+    plt.ylabel('Error')
+    plt.title('Position Error in X')
+    plt.legend()
+
+    plt.subplot(3, 1, 2)
+    plt.plot(errors[:, 1], label='Error in Y')
+    plt.xlabel('Time Steps')
+    plt.ylabel('Error')
+    plt.title('Position Error in Y')
+    plt.legend()
+
+    # Z Position vs Time (Altitude)
+    plt.subplot(3, 1, 3)  
+    plt.plot(errors[:, 2] label='Error in Altitude')
+    plt.xlabel('Time Steps')
+    plt.ylabel('Error')
+    plt.title('Error in Altitude')
+    plt.legend()
+    plt.savefig(os.path.join(results_dir, f'Error_vs_Time_{i+1}.png'))
+
+    # Calculate the mean of the last 30 errors to see if there's a steady offset
+    # mean_error_x = np.mean(errors[-30:, 0])
+    # mean_error_y = np.mean(errors[-30:, 1])
+    # mean_error_z = np.mean(errors[-30:, 1])
+    # print(f'Mean steady-state error in X: {mean_error_x}')
+    # print(f'Mean steady-state error in Y: {mean_error_y}')
+
 
 
 df = pd.DataFrame(results)
