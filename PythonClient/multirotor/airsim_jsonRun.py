@@ -70,12 +70,40 @@ settings_file_path = ".\\settings.json"
 # Define sets of IMU sensor parameters you want to test
 param_sets = [
     {
-        "AngularRandomWalk": 3000, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
-        "VelocityRandomWalk": 240, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
+        "AngularRandomWalk": 0.3, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
+        "VelocityRandomWalk": 0.24, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
     },
     {
         "AngularRandomWalk": 300, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
-        "VelocityRandomWalk": 24, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
+        "VelocityRandomWalk": 240, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
+    },
+    {
+        "AngularRandomWalk": 3000, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
+        "VelocityRandomWalk": 2400, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
+    },
+    {
+        "AngularRandomWalk": 30000, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
+        "VelocityRandomWalk": 24000, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
+    },
+    {
+        "AngularRandomWalk": 0.3, "GyroBiasStabilityTau": 0.5, "GyroBiasStability": 4.6,
+        "VelocityRandomWalk": 0.24, "AccelBiasStabilityTau": 0.8, "AccelBiasStability": 36
+    },
+    {
+        "AngularRandomWalk": 0.3, "GyroBiasStabilityTau": 0.05, "GyroBiasStability": 4.6,
+        "VelocityRandomWalk": 0.24, "AccelBiasStabilityTau": 0.08, "AccelBiasStability": 36
+    },
+    {
+        "AngularRandomWalk": 0.3, "GyroBiasStabilityTau": 500, "GyroBiasStability": 460,
+        "VelocityRandomWalk": 0.24, "AccelBiasStabilityTau": 800, "AccelBiasStability": 3600
+    },
+    {
+        "AngularRandomWalk": 0.3, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4600,
+        "VelocityRandomWalk": 0.24, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36000
+    },
+    {
+        "AngularRandomWalk": 300000, "GyroBiasStabilityTau": 0.500, "GyroBiasStability": 4600,
+        "VelocityRandomWalk": 240000, "AccelBiasStabilityTau": 0.800, "AccelBiasStability": 36000
     }
     # Add more parameter sets as needed
 ]
