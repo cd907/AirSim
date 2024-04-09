@@ -93,12 +93,12 @@ if not os.path.isfile(excel_file_path):
 results = []
 
 # Initialize PID controllers for X and Y axes with separate parameters
-pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0, max_output_x=10,
-                               kp_y=0.5, ki_y=0, kd_y=0, max_output_y=10)
+pid_controller = PIDController(kp_x=0.5, ki_x=0.01, kd_x=0.5, max_output_x=10,
+                               kp_y=0.5, ki_y=0.01, kd_y=0.5, max_output_y=10)
 
 
 # Define noise variances for different simulations
-noise_std = [0.0, 0.1, 0.5, 1.0, 2.5, 5.0]
+noise_std = [0.0, 0.1, 0.5, 1.0]
 
 
 for i, std in enumerate(noise_std):
@@ -286,23 +286,23 @@ for i, std in enumerate(noise_std):
     # Plot the errors over time
     plt.figure(figsize=(12, 10))
     plt.subplot(3, 1, 1)
-    plt.plot(errors[:, 0], label='Error in X')
-    plt.xlabel('Time Steps')
+    plt.plot(times, errors[:, 0], label='Error in X')
+    plt.xlabel('Time(s)')
     plt.ylabel('Error')
     plt.title('Position Error in X')
     plt.legend()
 
     plt.subplot(3, 1, 2)
-    plt.plot(errors[:, 1], label='Error in Y')
-    plt.xlabel('Time Steps')
+    plt.plot(times, errors[:, 1], label='Error in Y')
+    plt.xlabel('Time(s)')
     plt.ylabel('Error')
     plt.title('Position Error in Y')
     plt.legend()
 
     # Z Position vs Time (Altitude)
     plt.subplot(3, 1, 3)  
-    plt.plot(errors[:, 2] label='Error in Altitude')
-    plt.xlabel('Time Steps')
+    plt.plot(times, errors[:, 2], label='Error in Altitude')
+    plt.xlabel('Time(s)')
     plt.ylabel('Error')
     plt.title('Error in Altitude')
     plt.legend()
