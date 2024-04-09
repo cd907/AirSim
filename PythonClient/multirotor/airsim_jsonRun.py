@@ -70,8 +70,12 @@ settings_file_path = ".\\settings.json"
 # Define sets of IMU sensor parameters you want to test
 param_sets = [
     {
-        "AngularRandomWalk": 3, "GyroBiasStabilityTau": 5000, "GyroBiasStability": 46,
-        "VelocityRandomWalk": 2.4, "AccelBiasStabilityTau": 8000, "AccelBiasStability": 360
+        "AngularRandomWalk": 3000, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
+        "VelocityRandomWalk": 240, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
+    },
+    {
+        "AngularRandomWalk": 300, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
+        "VelocityRandomWalk": 24, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
     }
     # Add more parameter sets as needed
 ]
