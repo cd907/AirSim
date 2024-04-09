@@ -82,7 +82,7 @@ for params in param_sets:
         settings = json.load(file)
     
     # Modify the IMU sensor parameters
-    settings["Sensors"]["Imu"].update(params)
+    settings['Vehicles']['Drone1']["Sensors"]["Imu"].update(params)
 
     # Write the modified settings back
     with open(settings_file_path, 'w') as file:
