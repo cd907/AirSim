@@ -67,273 +67,226 @@ waypoints = [
 ]
 
 settings_file_path = ".\\settings.json"
-# Define sets of IMU sensor parameters you want to test
-param_sets = [
-    {
-        "AngularRandomWalk": 0.3, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
-        "VelocityRandomWalk": 0.24, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
-    },
-    {
-        "AngularRandomWalk": 300, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
-        "VelocityRandomWalk": 240, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
-    },
-    {
-        "AngularRandomWalk": 3000, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
-        "VelocityRandomWalk": 2400, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
-    },
-    {
-        "AngularRandomWalk": 30000, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4.6,
-        "VelocityRandomWalk": 24000, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36
-    },
-    {
-        "AngularRandomWalk": 0.3, "GyroBiasStabilityTau": 0.5, "GyroBiasStability": 4.6,
-        "VelocityRandomWalk": 0.24, "AccelBiasStabilityTau": 0.8, "AccelBiasStability": 36
-    },
-    {
-        "AngularRandomWalk": 0.3, "GyroBiasStabilityTau": 0.05, "GyroBiasStability": 4.6,
-        "VelocityRandomWalk": 0.24, "AccelBiasStabilityTau": 0.08, "AccelBiasStability": 36
-    },
-    {
-        "AngularRandomWalk": 0.3, "GyroBiasStabilityTau": 500, "GyroBiasStability": 460,
-        "VelocityRandomWalk": 0.24, "AccelBiasStabilityTau": 800, "AccelBiasStability": 3600
-    },
-    {
-        "AngularRandomWalk": 0.3, "GyroBiasStabilityTau": 500, "GyroBiasStability": 4600,
-        "VelocityRandomWalk": 0.24, "AccelBiasStabilityTau": 800, "AccelBiasStability": 36000
-    },
-    {
-        "AngularRandomWalk": 300000, "GyroBiasStabilityTau": 0.500, "GyroBiasStability": 4600,
-        "VelocityRandomWalk": 240000, "AccelBiasStabilityTau": 0.800, "AccelBiasStability": 36000
-    }
-    # Add more parameter sets as needed
-]
 
-for params in param_sets:
-    # Load the current settings
-    with open(settings_file_path, 'r') as file:
-        settings = json.load(file)
+# Load the current settings
+with open(settings_file_path, 'r') as file:
+    settings = json.load(file)
     
-    # Modify the IMU sensor parameters
-    settings['Vehicles']['Drone1']["Sensors"]["Imu"].update(params)
 
-    # Write the modified settings back
-    with open(settings_file_path, 'w') as file:
-        json.dump(settings, file, indent=4) 
+# Generate a timestamp
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Generate a timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+# Create a new directory for this run
+results_dir = f'results_{timestamp}'
+os.makedirs(results_dir)
 
-    # Create a new directory for this run
-    results_dir = f'results_{timestamp}'
-    os.makedirs(results_dir)
+results = []
 
-    results = []
+# Initialize PID controllers for X and Y axes with separate parameters
+pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0, max_output_x=10,
+                            kp_y=0.5, ki_y=0, kd_y=0, max_output_y=10) 
 
-    # Initialize PID controllers for X and Y axes with separate parameters
-    pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0, max_output_x=10,
-                                kp_y=0.5, ki_y=0, kd_y=0, max_output_y=10) 
+# Run the AirSim simulation with the modified JSON settings
 
-    # Run the AirSim simulation with the modified JSON settings
+flight_path = []
+sensor_data = []
+# Initialize a list to store position errors
+position_errors = []
 
-    flight_path = []
-    sensor_data = []
-    # Initialize a list to store position errors
-    position_errors = []
+total_distance = 0
+collision_count = 0
+start_time = time.time()
 
-    total_distance = 0
-    collision_count = 0
-    start_time = time.time()
+# Connect to the AirSim simulator
+client = airsim.MultirotorClient()
+client.confirmConnection()
+client.enableApiControl(True)
+client.armDisarm(True)
 
-    # Connect to the AirSim simulator
-    client = airsim.MultirotorClient()
-    client.confirmConnection()
-    client.enableApiControl(True)
-    client.armDisarm(True)
+# Takeoff
+client.takeoffAsync().join()
 
-    # Takeoff
-    client.takeoffAsync().join()
+for _, waypoint in enumerate(waypoints):
 
-    for _, waypoint in enumerate(waypoints):
+    last_time = time.time()
+    prev_position = client.simGetVehiclePose().position.to_numpy_array()
+    # Continuously sample state until the drone is close to the waypoint
+    while not is_close(client.simGetVehiclePose().position, waypoint):
 
-        last_time = time.time()
-        prev_position = client.simGetVehiclePose().position.to_numpy_array()
-        # Continuously sample state until the drone is close to the waypoint
-        while not is_close(client.simGetVehiclePose().position, waypoint):
+        now = time.time()
+        dt = now - last_time
+        last_time = now
 
-            now = time.time()
-            dt = now - last_time
-            last_time = now
+        # Fetch sensor and state data
+        imu_data = client.getImuData()
+        barometer_data = client.getBarometerData()
+        gps_data = client.getGpsData()
 
-            # Fetch sensor and state data
-            imu_data = client.getImuData()
-            barometer_data = client.getBarometerData()
-            gps_data = client.getGpsData()
+        # Record IMU, Barometer, GPS sensor data
+        data_entry = {
+            'Time(s)': now - start_time,
+            'Angular Velocity X(rad/s)': imu_data.angular_velocity.x_val,
+            'Angular Velocity Y(rad/s)': imu_data.angular_velocity.y_val,
+            'Angular Velocity Z(rad/s)': imu_data.angular_velocity.z_val,
+            'Linear Acceleration X(ms^-2)': imu_data.linear_acceleration.x_val,
+            'Linear Acceleration Y(ms^-2)': imu_data.linear_acceleration.y_val,
+            'Linear Acceleration Z(ms^-2)': imu_data.linear_acceleration.z_val,
+            'Orientation W': imu_data.orientation.w_val,
+            'Orientation X': imu_data.orientation.x_val,
+            'Orientation Y': imu_data.orientation.y_val,
+            'Orientation Z': imu_data.orientation.z_val,
+            'Barometer Altitude(m)': barometer_data.altitude,
+            'Barometer Pressure(Pa)': barometer_data.pressure,
+            'GPS Latitude(deg)': gps_data.gnss.geo_point.latitude,
+            'GPS Longitude(deg)': gps_data.gnss.geo_point.longitude,
+            'GPS Altitude(m)': gps_data.gnss.geo_point.altitude
+        }
 
-            # Record IMU, Barometer, GPS sensor data
-            data_entry = {
-                'Time(s)': now - start_time,
-                'Angular Velocity X(rad/s)': imu_data.angular_velocity.x_val,
-                'Angular Velocity Y(rad/s)': imu_data.angular_velocity.y_val,
-                'Angular Velocity Z(rad/s)': imu_data.angular_velocity.z_val,
-                'Linear Acceleration X(ms^-2)': imu_data.linear_acceleration.x_val,
-                'Linear Acceleration Y(ms^-2)': imu_data.linear_acceleration.y_val,
-                'Linear Acceleration Z(ms^-2)': imu_data.linear_acceleration.z_val,
-                'Orientation W': imu_data.orientation.w_val,
-                'Orientation X': imu_data.orientation.x_val,
-                'Orientation Y': imu_data.orientation.y_val,
-                'Orientation Z': imu_data.orientation.z_val,
-                'Barometer Altitude(m)': barometer_data.altitude,
-                'Barometer Pressure(Pa)': barometer_data.pressure,
-                'GPS Latitude(deg)': gps_data.gnss.geo_point.latitude,
-                'GPS Longitude(deg)': gps_data.gnss.geo_point.longitude,
-                'GPS Altitude(m)': gps_data.gnss.geo_point.altitude
-            }
+        sensor_data.append(data_entry)
 
-            sensor_data.append(data_entry)
+        # Get current position
+        state = client.simGetVehiclePose()
+        position = state.position
 
-            # Get current position
-            state = client.simGetVehiclePose()
-            position = state.position
+        # Record position and time
+        flight_path.append(( now-start_time, position))
+        position_errors.append((waypoint.x_val - position.x_val, waypoint.y_val - position.y_val, waypoint.z_val - position.z_val))
 
-            # Record position and time
-            flight_path.append(( now-start_time, position))
-            position_errors.append((waypoint.x_val - position.x_val, waypoint.y_val - position.y_val, waypoint.z_val - position.z_val))
+        # Calculate distance traveled since last position
+        distance = np.linalg.norm(position.to_numpy_array() - prev_position)
+        total_distance += distance
+        prev_position = position.to_numpy_array()
 
-            # Calculate distance traveled since last position
-            distance = np.linalg.norm(position.to_numpy_array() - prev_position)
-            total_distance += distance
-            prev_position = position.to_numpy_array()
+        # use PID Control logic moving to the next waypoint asynchronously
+        # Calculate position error in X-Y plane
+        error_x = waypoint.x_val - position.x_val
+        error_y = waypoint.y_val - position.y_val
 
-            # use PID Control logic moving to the next waypoint asynchronously
-            # Calculate position error in X-Y plane
-            error_x = waypoint.x_val - position.x_val
-            error_y = waypoint.y_val - position.y_val
+        # Update PID controls for X and Y simultaneously
+        control_x, control_y = pid_controller.update_controls(error_x, error_y, dt)
 
-            # Update PID controls for X and Y simultaneously
-            control_x, control_y = pid_controller.update_controls(error_x, error_y, dt)
+        # Apply controls
+        client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt)
 
-            # Apply controls
-            client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt)
+        # Check for collision
+        collision_info = client.simGetCollisionInfo()
 
-            # Check for collision
-            collision_info = client.simGetCollisionInfo()
+        if collision_info.has_collided:
+            print("Collision detected!")
+            collision_count += 1
+        
+        # Sleep to avoid excessive sampling
+        time.sleep(0.1)
 
-            if collision_info.has_collided:
-                print("Collision detected!")
-                collision_count += 1
-            
-            # Sleep to avoid excessive sampling
-            time.sleep(0.1)
+# Land
+client.reset()
+client.armDisarm(False)
+client.enableApiControl(False)
 
-    # Land
-    client.reset()
-    client.armDisarm(False)
-    client.enableApiControl(False)
+total_time = time.time() - start_time
 
-    total_time = time.time() - start_time
+results.append({
+    'Total Distance Traveled (m)': total_distance,
+    'Total Flight Time (s)': total_time,
+    'Collision Count': collision_count,
+    'PID X kp_val': pid_controller.kp_x,  
+    'PID X ki_val': pid_controller.ki_x,  
+    'PID X kd_val': pid_controller.kd_x,  
+    'PID X max_output_val': pid_controller.max_output_x,  
+    'PID Y kp_val': pid_controller.kp_y,  
+    'PID Y ki_val': pid_controller.ki_y,  
+    'PID Y kd_val': pid_controller.kd_y,  
+    'PID Y max_output_val': pid_controller.max_output_y,
+    "AngularRandomWalk": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AngularRandomWalk'],
+    "GyroBiasStabilityTau": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['GyroBiasStabilityTau'],
+    "GyroBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['GyroBiasStability'],
+    "VelocityRandomWalk": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['VelocityRandomWalk'],
+    "AccelBiasStabilityTau": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStabilityTau'],
+    "AccelBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStability']
+})
 
-    results.append({
-        'Total Distance Traveled (m)': total_distance,
-        'Total Flight Time (s)': total_time,
-        'Collision Count': collision_count,
-        'PID X kp_val': pid_controller.kp_x,  
-        'PID X ki_val': pid_controller.ki_x,  
-        'PID X kd_val': pid_controller.kd_x,  
-        'PID X max_output_val': pid_controller.max_output_x,  
-        'PID Y kp_val': pid_controller.kp_y,  
-        'PID Y ki_val': pid_controller.ki_y,  
-        'PID Y kd_val': pid_controller.kd_y,  
-        'PID Y max_output_val': pid_controller.max_output_y,
-        "AngularRandomWalk": params['AngularRandomWalk'],
-        "GyroBiasStabilityTau": params['GyroBiasStabilityTau'],
-        "GyroBiasStability": params['GyroBiasStability'],
-        "VelocityRandomWalk": params['VelocityRandomWalk'],
-        "AccelBiasStabilityTau": params['AccelBiasStabilityTau'],
-        "AccelBiasStability": params['AccelBiasStability']
-    })
+# Extracting X, Y, Z coordinates
+times = [timestamp for timestamp, _ in flight_path]
+x_vals = [pos.x_val for _, pos in flight_path]
+y_vals = [pos.y_val for _, pos in flight_path]
+z_vals = [-pos.z_val for _, pos in flight_path] #  Negate Z to show altitude above ground
 
-    # Extracting X, Y, Z coordinates
-    times = [timestamp for timestamp, _ in flight_path]
-    x_vals = [pos.x_val for _, pos in flight_path]
-    y_vals = [pos.y_val for _, pos in flight_path]
-    z_vals = [-pos.z_val for _, pos in flight_path] #  Negate Z to show altitude above ground
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
+# Plotting the flight path as a scatter plot
+ax.scatter(x_vals, y_vals, z_vals, c='blue', s=10) 
+# Highlight the start point in green
+ax.scatter(x_vals[0], y_vals[0], z_vals[0], c='green', s=50, label='Start Point')
+# Highlight the end point in red
+ax.scatter(x_vals[-1], y_vals[-1], z_vals[-1], c='red', s=50, label='End Point')
 
-    # Plotting the flight path as a scatter plot
-    ax.scatter(x_vals, y_vals, z_vals, c='blue', s=10) 
-    # Highlight the start point in green
-    ax.scatter(x_vals[0], y_vals[0], z_vals[0], c='green', s=50, label='Start Point')
-    # Highlight the end point in red
-    ax.scatter(x_vals[-1], y_vals[-1], z_vals[-1], c='red', s=50, label='End Point')
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Z')
+ax.set_title(f'3D Flight Path Visualization')
+plt.savefig(os.path.join(results_dir, 'flight_path_simulation.png'))
+plt.clf()
 
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    ax.set_title(f'3D Flight Path Visualization')
-    plt.savefig(os.path.join(results_dir, 'flight_path_simulation.png'))
-    plt.clf()
+plt.figure(figsize=(12, 10))
 
-    plt.figure(figsize=(12, 10))
+# X Position vs Time
+plt.subplot(3, 1, 1)  
+plt.plot(times, x_vals, label='X Position')
+plt.xlabel('Time (s)')
+plt.ylabel('X Position (m)')
+plt.title('X Position vs. Time')
+plt.legend()
 
-    # X Position vs Time
-    plt.subplot(3, 1, 1)  
-    plt.plot(times, x_vals, label='X Position')
-    plt.xlabel('Time (s)')
-    plt.ylabel('X Position (m)')
-    plt.title('X Position vs. Time')
-    plt.legend()
+# Y Position vs Time
+plt.subplot(3, 1, 2)  
+plt.plot(times, y_vals, label='Y Position')
+plt.xlabel('Time (s)')
+plt.ylabel('Y Position (m)')
+plt.title('Y Position vs. Time')
+plt.legend()
 
-    # Y Position vs Time
-    plt.subplot(3, 1, 2)  
-    plt.plot(times, y_vals, label='Y Position')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Y Position (m)')
-    plt.title('Y Position vs. Time')
-    plt.legend()
+# Z Position vs Time (Altitude)
+plt.subplot(3, 1, 3)  
+plt.plot(times, z_vals, label='Altitude')
+plt.xlabel('Time (s)')
+plt.ylabel('Altitude (m)')
+plt.title('Altitude vs. Time')
+plt.legend()
+plt.savefig(os.path.join(results_dir, 'XYZ_vs_Time.png'))
 
-    # Z Position vs Time (Altitude)
-    plt.subplot(3, 1, 3)  
-    plt.plot(times, z_vals, label='Altitude')
-    plt.xlabel('Time (s)')
-    plt.ylabel('Altitude (m)')
-    plt.title('Altitude vs. Time')
-    plt.legend()
-    plt.savefig(os.path.join(results_dir, 'XYZ_vs_Time.png'))
-
-    sensor_data_df = pd.DataFrame(sensor_data)
-    sensor_data_df.to_excel(os.path.join(results_dir,'sensor_data.xlsx'), index=False)
+sensor_data_df = pd.DataFrame(sensor_data)
+sensor_data_df.to_excel(os.path.join(results_dir,'sensor_data.xlsx'), index=False)
 
 
-    errors = np.array(position_errors)
-    # Plot the errors over time
-    plt.figure(figsize=(12, 10))
-    plt.subplot(3, 1, 1)
-    plt.plot(errors[:, 0], label='Error in X')
-    plt.xlabel('Time Steps')
-    plt.ylabel('Error')
-    plt.title('Position Error in X')
-    plt.legend()
+errors = np.array(position_errors)
+# Plot the errors over time
+plt.figure(figsize=(12, 10))
+plt.subplot(3, 1, 1)
+plt.plot(errors[:, 0], label='Error in X')
+plt.xlabel('Time Steps')
+plt.ylabel('Error')
+plt.title('Position Error in X')
+plt.legend()
 
-    plt.subplot(3, 1, 2)
-    plt.plot(errors[:, 1], label='Error in Y')
-    plt.xlabel('Time Steps')
-    plt.ylabel('Error')
-    plt.title('Position Error in Y')
-    plt.legend()
+plt.subplot(3, 1, 2)
+plt.plot(errors[:, 1], label='Error in Y')
+plt.xlabel('Time Steps')
+plt.ylabel('Error')
+plt.title('Position Error in Y')
+plt.legend()
 
-    # Z Position vs Time (Altitude)
-    plt.subplot(3, 1, 3)  
-    plt.plot(errors[:, 2], label='Error in Altitude')
-    plt.xlabel('Time Steps')
-    plt.ylabel('Error')
-    plt.title('Error in Altitude')
-    plt.legend()
-    plt.savefig(os.path.join(results_dir, 'Error_vs_Time.png'))
+# Z Position vs Time (Altitude)
+plt.subplot(3, 1, 3)  
+plt.plot(errors[:, 2], label='Error in Altitude')
+plt.xlabel('Time Steps')
+plt.ylabel('Error')
+plt.title('Error in Altitude')
+plt.legend()
+plt.savefig(os.path.join(results_dir, 'Error_vs_Time.png'))
 
 
-    df = pd.DataFrame(results)
-    df.to_excel(os.path.join(results_dir,'simulation_results.xlsx'), index=False)
+df = pd.DataFrame(results)
+df.to_excel(os.path.join(results_dir,'simulation_results.xlsx'), index=False)
 
 
