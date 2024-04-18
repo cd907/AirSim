@@ -240,8 +240,31 @@ for _, waypoint in enumerate(waypoints):
         v_est = v_check
         q_est = q_check
         p_cov = p_cov_check
-        imu_f = np.array([imu_data.linear_acceleration.x_val, imu_data.linear_acceleration.y_val, imu_data.linear_acceleration.z_val])
-        imu_w = np.array([imu_data.angular_velocity.x_val, imu_data.angular_velocity.y_val, imu_data.angular_velocity.z_val])
+        # imu_f = np.array([imu_data.linear_acceleration.x_val, imu_data.linear_acceleration.y_val, imu_data.linear_acceleration.z_val])
+        # imu_w = np.array([imu_data.angular_velocity.x_val, imu_data.angular_velocity.y_val, imu_data.angular_velocity.z_val])
+
+        imu_f = imu_data.linear_acceleration.to_numpy_array()
+        imu_w = imu_data.angular_velocity.to_numpy_array()
+
+        # Record IMU, Barometer, GPS sensor data
+        data_entry = {
+            'Time(s)': now - start_time,
+            'Angular Velocity X(rad/s)': imu_data.angular_velocity.x_val,
+            'Angular Velocity Y(rad/s)': imu_data.angular_velocity.y_val,
+            'Angular Velocity Z(rad/s)': imu_data.angular_velocity.z_val,
+            'Linear Acceleration X(ms^-2)': imu_data.linear_acceleration.x_val,
+            'Linear Acceleration Y(ms^-2)': imu_data.linear_acceleration.y_val,
+            'Linear Acceleration Z(ms^-2)': imu_data.linear_acceleration.z_val,
+            'Orientation W': imu_data.orientation.w_val,
+            'Orientation X': imu_data.orientation.x_val,
+            'Orientation Y': imu_data.orientation.y_val,
+            'Orientation Z': imu_data.orientation.z_val,
+            'GPS Latitude(deg)': gps_data.gnss.geo_point.latitude,
+            'GPS Longitude(deg)': gps_data.gnss.geo_point.longitude,
+            'GPS Altitude(m)': gps_data.gnss.geo_point.altitude
+        }
+
+        sensor_data.append(data_entry)
 
         # Record position and time
         flight_path.append(( now-start_time, p_check))
@@ -377,4 +400,5 @@ plt.savefig(os.path.join(results_dir, f'Error_vs_Time_{i+1}.png'))
 df = pd.DataFrame(results)
 df.to_excel(os.path.join(results_dir,'simulation_results.xlsx'), index=False)
 
-
+sensor_data_df = pd.DataFrame(sensor_data)
+sensor_data_df.to_excel(os.path.join(results_dir,'sensor_data.xlsx'), index=False)
