@@ -235,6 +235,12 @@ for _, waypoint in enumerate(waypoints):
         gnss_data = [lat, lon, gps_data.gnss.geo_point.altitude] 
         p_check, v_check, q_check, p_cov_check = measurement_update(var_gnss, p_cov_check, gnss_data, p_check, v_check, q_check)
 
+        # Print out the updated states and covariance matrix
+        print(f"Updated Position: {p_check}")
+        print(f"Updated Velocity: {v_check}")
+        print(f"Updated Quaternion: {q_check.to_numpy()}")  # Assuming q_check is a Quaternion object
+        # print(f"Updated Covariance Matrix:\n{p_cov_check}")
+
         # Update states (save)
         p_est = p_check
         v_est = v_check
@@ -245,6 +251,8 @@ for _, waypoint in enumerate(waypoints):
 
         imu_f = imu_data.linear_acceleration.to_numpy_array()
         imu_w = imu_data.angular_velocity.to_numpy_array()
+        print(f"Updated imu_f: {imu_f}")
+        print(f"Updated imu_w: {imu_w}")
 
         # Record IMU, Barometer, GPS sensor data
         data_entry = {
