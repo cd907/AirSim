@@ -238,7 +238,7 @@ for _, waypoint in enumerate(waypoints):
         # Print out the updated states and covariance matrix
         print(f"Updated Position: {p_check}")
         print(f"Updated Velocity: {v_check}")
-        print(f"Updated Quaternion: {q_check.to_numpy()}")  # Assuming q_check is a Quaternion object
+        print(f"Updated Quaternion: {q_check}")  # Assuming q_check is a Quaternion object
         # print(f"Updated Covariance Matrix:\n{p_cov_check}")
 
         # Update states (save)
@@ -276,7 +276,7 @@ for _, waypoint in enumerate(waypoints):
 
         # Record position and time
         flight_path.append(( now-start_time, p_check))
-        position_errors.append((waypoint.x_val - p_check[0], waypoint.y_val - p_check[1], waypoint.z_val - p_check[2]))
+        position_errors.append((waypoint.x_val - p_check[0], waypoint.y_val - p_check[1], waypoint.z_val + p_check[2]))
 
 
         # use PID Control logic moving to the next waypoint asynchronously
@@ -331,7 +331,7 @@ results.append({
 times = [timestamp for timestamp, _ in flight_path]
 x_vals = [pos[0] for _, pos in flight_path]
 y_vals = [pos[1]  for _, pos in flight_path]
-z_vals = [-pos[2]  for _, pos in flight_path] #  Negate Z to show altitude above ground
+z_vals = [pos[2]  for _, pos in flight_path] #  Negate Z to show altitude above ground
 
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
