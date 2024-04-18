@@ -94,7 +94,10 @@ class Quaternion():
             self.y = cr * sp * cy + sr * cp * sy
             self.z = cr * cp * sy - sr * sp * cy
 
-            # Rotating frame
+            ##################
+            #########    don't know which frame to choose????
+            ####################
+            # Rotating frame   
             # self.w = cr * cp * cy - sr * sp * sy
             # self.x = cr * sp * sy + sr * cp * cy
             # self.y = cr * sp * cy - sr * cp * sy

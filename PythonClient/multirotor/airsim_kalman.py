@@ -131,21 +131,6 @@ l_jac[3:, :] = np.eye(6)  # motion model noise jacobian
 h_jac = np.zeros([3, 9])
 h_jac[:, :3] = np.eye(3)  # measurement model jacobian
 
-# #### setup Initial Values #########################################################################
-
-# ################################################################################################
-# # Let's set up some initial values for our ES-EKF solver.
-# ################################################################################################
-p_est = []  # position estimates
-v_est = []  # velocity estimates
-q_est = []  # orientation estimates as quaternions
-p_cov = []  # covariance matrices at each timestep
-
-# # Set initial values.
-p_est[0] = [[0,0,0]] #???????
-v_est[0] = [[0,0,0]]
-q_est[0] = Quaternion(euler=[[0,0,0]]).to_numpy() ### gt.r[0] unit is rad
-p_cov[0] = np.zeros(9)  # covariance of estimate
 
 # Run the AirSim simulation with the modified JSON settings
 
@@ -167,6 +152,28 @@ client.armDisarm(True)
 # Takeoff
 client.takeoffAsync().join()
 
+# #### EKF Initial Values #########################################################################
+
+# ################################################################################################
+# # Let's set up some initial values for our ES-EKF solver.
+# ################################################################################################
+# p_est = []  # position estimates
+# v_est = []  # velocity estimates
+# q_est = []  # orientation estimates as quaternions
+# p_cov = []  # covariance matrices at each timestep
+
+# Get current state as position and orientation
+state = client.getMultirotorState() # only call state variable here once for initial use
+
+# # Set initial values.
+p_est = state.kinematics_estimated.position.to_numpy_array() # initial position estimates
+v_est = state.kinematics_estimated.linear_velocity # initial velocity estimates
+orientation = state.kinematics_estimated.orientation 
+q_est = Quaternion(euler=np.array([orientation.x_val, orientation.y_val, orientation.z_val])).to_numpy() ### gt.r[0] unit is rad
+imu_w = state.kinematics_estimated.angular_velocity # initial Angular Velocity estimates
+imu_f = state.kinematics_estimated.linear_acceleration  # initial linear acceleration estimates
+p_cov = np.zeros(9)  # covariance of estimate
+
 for _, waypoint in enumerate(waypoints):
 
     last_time = time.time()
@@ -178,10 +185,6 @@ for _, waypoint in enumerate(waypoints):
         dt = now - last_time
         last_time = now
 
-        # Fetch sensor and state data
-        imu_data = client.getImuData()
-        gps_data = client.getGpsData()
-
 
         # #### Use EKF filter to estimate current position #######################################################################
 
@@ -190,21 +193,27 @@ for _, waypoint in enumerate(waypoints):
         # # for our state
         # ################################################################################################
         # 1. Update state with IMU inputs
-        orientation = [imu_data.orientation.x_val, imu_data.orientation.y_val, imu_data.orientation.z_val]
-        q_prev = Quaternion(euler=orientation).to_numpy() # previous orientation as a quaternion object, unpack the elements of the array q_est[k - 1, :] as arguments to the Quaternion class constructor.
-        angle_rate = [imu_data.angular_velocity.x_val, imu_data.angular_velocity.y_val, imu_data.angular_velocity.z_val]
-        q_curr = Quaternion(axis_angle=(angle_rate*dt)) # current IMU orientation
+
+        # orientation = [imu_data.orientation.x_val, imu_data.orientation.y_val, imu_data.orientation.z_val]
+        q_prev = Quaternion(*q_est) # previous orientation as a quaternion object
+        # q_prev = Quaternion(euler=orientation).to_numpy() # previous orientation as a quaternion object, unpack the elements of the array q_est[k - 1, :] as arguments to the Quaternion class constructor.
+        
+        # angle_rate = np.array([imu_data.angular_velocity.x_val, imu_data.angular_velocity.y_val, imu_data.angular_velocity.z_val])
+
+        q_curr = Quaternion(axis_angle=(imu_w*dt)) # current IMU orientation
         c_ns = q_prev.to_mat() # previous orientation as a matrix
-        acceleration = [imu_data.linear_acceleration.x_val, imu_data.linear_acceleration.y_val, imu_data.linear_acceleration.z_val]
-        f_ns = (c_ns @ acceleration) + g # calculate sum of forces, g needs to be +9.81
+
+        # acceleration = [imu_data.linear_acceleration.x_val, imu_data.linear_acceleration.y_val, imu_data.linear_acceleration.z_val]
+
+        f_ns = (c_ns @ imu_f) + g # calculate sum of forces, g needs to be +9.81
         p_check = p_est + dt*v_est + 0.5*(dt**2)*f_ns
-        v_check = v_est+ dt*f_ns
+        v_check = v_est + dt*f_ns
         q_check = q_prev.quat_mult_left(q_curr)
 
         # 1.1 Linearize the motion model and compute Jacobians
         f_jac = np.eye(9) # motion model jacobian with respect to last state
         f_jac[0:3, 3:6] = np.eye(3)*dt
-        f_jac[3:6, 6:9] = -skew_symmetric(c_ns @ acceleration)*dt
+        f_jac[3:6, 6:9] = -skew_symmetric(c_ns @ imu_f)*dt
 
         # 2. Propagate uncertainty
         q_cov = np.zeros((6, 6)) # IMU noise covariance
@@ -214,6 +223,10 @@ for _, waypoint in enumerate(waypoints):
 
         ####### 3. EKF filter fuse GNSS measurements with model predictions
         ##################################################################
+
+        # Fetch IMU, GPS sensors data
+        imu_data = client.getImuData()
+        gps_data = client.getGpsData()
 
         # convert  latitude, longitude to meters
         lat = gps_data.gnss.geo_point.latitude*np.pi/180*6371000 # unit deg to m
@@ -226,6 +239,8 @@ for _, waypoint in enumerate(waypoints):
         v_est = v_check
         q_est = q_check
         p_cov = p_cov_check
+        imu_f = np.array([imu_data.linear_acceleration.x_val, imu_data.linear_acceleration.y_val, imu_data.linear_acceleration.z_val])
+        imu_w = np.array([imu_data.angular_velocity.x_val, imu_data.angular_velocity.y_val, imu_data.angular_velocity.z_val])
 
         # Record position and time
         flight_path.append(( now-start_time, p_check))
@@ -251,7 +266,7 @@ for _, waypoint in enumerate(waypoints):
             collision_count += 1
         
         # Sleep to avoid excessive sampling
-        time.sleep(0.1)
+        # time.sleep(0.1)
 
 # Land
 client.reset()
