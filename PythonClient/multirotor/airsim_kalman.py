@@ -106,6 +106,7 @@ results_dir = f'results_{timestamp}'
 os.makedirs(results_dir)
 
 results = []
+sensor_data = []
 
 # Initialize PID controllers for X and Y axes with separate parameters
 pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0, max_output_x=10,
@@ -135,7 +136,6 @@ h_jac[:, :3] = np.eye(3)  # measurement model jacobian
 # Run the AirSim simulation with the modified JSON settings
 
 flight_path = []
-sensor_data = []
 # Initialize a list to store position errors
 position_errors = []
 
@@ -394,7 +394,7 @@ plt.xlabel('Time(s)')
 plt.ylabel('Error')
 plt.title('Error in Altitude')
 plt.legend()
-plt.savefig(os.path.join(results_dir, f'Error_vs_Time_{i+1}.png'))
+plt.savefig(os.path.join(results_dir, 'Error_vs_Time.png'))
 
 
 df = pd.DataFrame(results)
