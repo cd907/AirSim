@@ -167,12 +167,13 @@ state = client.getMultirotorState() # only call state variable here once for ini
 
 # # Set initial values.
 p_est = state.kinematics_estimated.position.to_numpy_array() # initial position estimates
-v_est = state.kinematics_estimated.linear_velocity # initial velocity estimates
+v_est = state.kinematics_estimated.linear_velocity.to_numpy_array() # initial velocity estimates
 orientation = state.kinematics_estimated.orientation 
 q_est = Quaternion(euler=np.array([orientation.x_val, orientation.y_val, orientation.z_val])).to_numpy() ### gt.r[0] unit is rad
-imu_w = state.kinematics_estimated.angular_velocity # initial Angular Velocity estimates
-imu_f = state.kinematics_estimated.linear_acceleration  # initial linear acceleration estimates
+imu_w = state.kinematics_estimated.angular_velocity.to_numpy_array() # initial Angular Velocity estimates
+imu_f = state.kinematics_estimated.linear_acceleration.to_numpy_array() # initial linear acceleration estimates
 p_cov = np.zeros(9)  # covariance of estimate
+print(imu_f)
 
 for _, waypoint in enumerate(waypoints):
 
@@ -213,7 +214,7 @@ for _, waypoint in enumerate(waypoints):
         # 1.1 Linearize the motion model and compute Jacobians
         f_jac = np.eye(9) # motion model jacobian with respect to last state
         f_jac[0:3, 3:6] = np.eye(3)*dt
-        f_jac[3:6, 6:9] = -skew_symmetric(c_ns @ imu_f)*dt
+        f_jac[3:6, 6:9] = -skew_symmetric(c_ns @ imu_f.reshape(3,1))*dt
 
         # 2. Propagate uncertainty
         q_cov = np.zeros((6, 6)) # IMU noise covariance
