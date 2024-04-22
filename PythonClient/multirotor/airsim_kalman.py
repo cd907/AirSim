@@ -169,10 +169,10 @@ state = client.getMultirotorState() # only call state variable here once for ini
 p_est = state.kinematics_estimated.position.to_numpy_array() # initial position estimates
 v_est = state.kinematics_estimated.linear_velocity.to_numpy_array() # initial velocity estimates
 orientation = state.kinematics_estimated.orientation 
-q_est = Quaternion(euler=np.array([orientation.x_val, orientation.y_val, orientation.z_val])).to_numpy() ### gt.r[0] unit is rad
+q_est = Quaternion(euler=np.array([orientation.x_val, orientation.y_val, orientation.z_val])).to_numpy() ### gt.r[0] unit is rad, 4*1 np.array
 imu_w = state.kinematics_estimated.angular_velocity.to_numpy_array() # initial Angular Velocity estimates
 imu_f = state.kinematics_estimated.linear_acceleration.to_numpy_array() # initial linear acceleration estimates
-p_cov = np.zeros(9)  # covariance of estimate
+p_cov = np.zeros(9)  # covariance of estimate, 9*9 matrix
 print(imu_f)
 
 for _, waypoint in enumerate(waypoints):
@@ -202,7 +202,7 @@ for _, waypoint in enumerate(waypoints):
         # angle_rate = np.array([imu_data.angular_velocity.x_val, imu_data.angular_velocity.y_val, imu_data.angular_velocity.z_val])
 
         q_curr = Quaternion(axis_angle=(imu_w*dt)) # current IMU orientation
-        c_ns = q_prev.to_mat() # previous orientation as a matrix
+        c_ns = q_prev.to_mat() # previous orientation as a matrix, 3*3 matrix
 
         # acceleration = [imu_data.linear_acceleration.x_val, imu_data.linear_acceleration.y_val, imu_data.linear_acceleration.z_val]
 
@@ -212,9 +212,10 @@ for _, waypoint in enumerate(waypoints):
         q_check = q_prev.quat_mult_left(q_curr)
 
         # 1.1 Linearize the motion model and compute Jacobians
-        f_jac = np.eye(9) # motion model jacobian with respect to last state
-        f_jac[0:3, 3:6] = np.eye(3)*dt
-        f_jac[3:6, 6:9] = -skew_symmetric(c_ns @ imu_f.reshape(3,1))*dt
+        f_jac = np.eye(9) # motion model jacobian with respect to last state, 9x9 identity matrix
+        f_jac[0:3, 3:6] = np.eye(3)*dt # modifies the block from rows 0 to 2 and columns 3 to 5 of the f_jac matrix, part of the Jacobian represents the partial derivatives of the position states with respect to velocity states, 
+        # assuming a basic kinematic model where position p is updated as p = p + v * dt
+        f_jac[3:6, 6:9] = -skew_symmetric(c_ns @ imu_f.reshape(3,1))*dt # specifically for the velocity updates
 
         # 2. Propagate uncertainty
         q_cov = np.zeros((6, 6)) # IMU noise covariance

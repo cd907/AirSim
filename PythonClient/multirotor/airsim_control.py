@@ -72,11 +72,12 @@ class PIDController:
 
 # Define waypoints in mission (x, y, z in meters)
 waypoints = [
-    airsim.Vector3r(0, 0, -10),
-    airsim.Vector3r(10, 0, -10),
-    airsim.Vector3r(10, 10, -10),
-    airsim.Vector3r(0, 10, -10),
-    airsim.Vector3r(0, 0, -10)
+    airsim.Vector3r(0, 0, 0),
+    airsim.Vector3r(-5.80057114 , 36.9870592, -2),
+    airsim.Vector3r(24.3623988, 35.9201248 , 0),
+    airsim.Vector3r(80.04788178 , -10.3136992 , 5),
+    airsim.Vector3r(25.28686483, -13.9590584 , -577),
+    airsim.Vector3r(0, 0, 0)
 ]
 
 # Generate a timestamp
