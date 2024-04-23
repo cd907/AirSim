@@ -417,9 +417,14 @@ plt.savefig(os.path.join(results_dir, 'Error_vs_Time.png'))
 
 # Plotting
 plt.figure(figsize=(10, 6))
-plt.plot(times, err3[:, 0], label='X Difference')
-plt.plot(times, err3[:, 1], label='Y Difference')
-plt.plot(times, err3[:, 2], label='Z Difference')
+# Assuming consistent length and format for err3
+X_diff = [item[0] for item in err3]
+Y_diff = [item[1] for item in err3]
+Z_diff = [item[2] for item in err3]
+
+plt.plot(times, X_diff, label='X Difference')
+plt.plot(times, Y_diff, label='Y Difference')
+plt.plot(times, Z_diff, label='Z Difference')
 plt.title('Newton law estimtes vs AirSim Position Differences Over Time')
 plt.xlabel('Time (s)')
 plt.ylabel('Position Difference (meters)')
