@@ -96,8 +96,8 @@ pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0.5, max_output_x=10,
 # # most important aspects of a filter is setting the estimated sensor variances correctly.
 # # We set the values here.
 # ################################################################################################
-var_imu_f = 1e-10
-var_imu_w = 1e-10
+var_imu_f = 0.10
+var_imu_w = 0.10
 
 # ################################################################################################
 # # We can also set up some constants that won't change for any iteration of our solver.
@@ -171,9 +171,11 @@ for _, waypoint in enumerate(waypoints):
         f_ns = (c_ns @ imu_f) + g # calculate sum of forces, g needs to be +9.81
         # use Newton law to update position
         p_check = p_est + dt*v_est + 0.5*(dt**2)*f_ns
+        print(p_check)
 
         # get position by calling state
         cur_position = client.simGetVehiclePose().position.to_numpy_array()
+        print(cur_position)
 
         # compare them 
         err3.append(p_check-cur_position)
@@ -193,7 +195,8 @@ for _, waypoint in enumerate(waypoints):
         q_cov[3:6, 3:6] = dt**2 * np.eye(3)*var_imu_w
         p_cov_check = f_jac @ p_cov @ f_jac.T + l_jac @ q_cov @ l_jac.T
 
-        
+        # Fetch IMU sensors data
+        imu_data = client.getImuData()
 
         # Update states (save)
         p_est = p_check
@@ -201,8 +204,7 @@ for _, waypoint in enumerate(waypoints):
         q_est = q_check
         p_cov = p_cov_check
         
-        # Fetch IMU sensors data
-        imu_data = client.getImuData()
+      
         imu_f = imu_data.linear_acceleration.to_numpy_array()
         imu_w = imu_data.angular_velocity.to_numpy_array()
        
