@@ -208,6 +208,7 @@ for _, waypoint in enumerate(waypoints):
 
         f_ns = (c_ns @ imu_f) + g # calculate sum of forces, g needs to be +9.81
         p_check = p_est + dt*v_est + 0.5*(dt**2)*f_ns
+        print(f"Updated Position before: {p_check}")
         v_check = v_est + dt*f_ns
         q_check = q_prev.quat_mult_left(q_curr)
 
@@ -237,7 +238,7 @@ for _, waypoint in enumerate(waypoints):
         p_check, v_check, q_check, p_cov_check = measurement_update(var_gnss, p_cov_check, gnss_data, p_check, v_check, q_check)
 
         # Print out the updated states and covariance matrix
-        print(f"Updated Position: {p_check}")
+        print(f"Updated Position after: {p_check}")
         print(f"Updated Velocity: {v_check}")
         print(f"Updated Quaternion: {q_check}")  # Assuming q_check is a Quaternion object
         # print(f"Updated Covariance Matrix:\n{p_cov_check}")
