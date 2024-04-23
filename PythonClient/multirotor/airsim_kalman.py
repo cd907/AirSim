@@ -138,6 +138,7 @@ h_jac[:, :3] = np.eye(3)  # measurement model jacobian
 flight_path = []
 # Initialize a list to store position errors
 position_errors = []
+err3=[]
 
 total_distance = 0
 collision_count = 0
@@ -209,6 +210,14 @@ for _, waypoint in enumerate(waypoints):
         f_ns = (c_ns @ imu_f) + g # calculate sum of forces, g needs to be +9.81
         p_check = p_est + dt*v_est + 0.5*(dt**2)*f_ns
         print(f"Updated Position before: {p_check}")
+
+        # get position by calling state
+        cur_position = client.simGetVehiclePose().position.to_numpy_array()
+        print(cur_position)
+
+        # compare them 
+        err3.append(p_check-cur_position)
+
         v_check = v_est + dt*f_ns
         q_check = q_prev.quat_mult_left(q_curr)
 
@@ -405,6 +414,18 @@ plt.ylabel('Error')
 plt.title('Error in Altitude')
 plt.legend()
 plt.savefig(os.path.join(results_dir, 'Error_vs_Time.png'))
+
+# Plotting
+plt.figure(figsize=(10, 6))
+plt.plot(times, err3[:, 0], label='X Difference')
+plt.plot(times, err3[:, 1], label='Y Difference')
+plt.plot(times, err3[:, 2], label='Z Difference')
+plt.title('Newton law estimtes vs AirSim Position Differences Over Time')
+plt.xlabel('Time (s)')
+plt.ylabel('Position Difference (meters)')
+plt.legend()
+plt.grid(True)
+plt.show()
 
 
 df = pd.DataFrame(results)
