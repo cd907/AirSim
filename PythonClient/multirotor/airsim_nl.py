@@ -96,8 +96,8 @@ pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0.5, max_output_x=10,
 # # most important aspects of a filter is setting the estimated sensor variances correctly.
 # # We set the values here.
 # ################################################################################################
-var_imu_f = 0.10
-var_imu_w = 0.10
+var_imu_f = 0.001
+var_imu_w = 0.001
 
 # ################################################################################################
 # # We can also set up some constants that won't change for any iteration of our solver.
@@ -175,7 +175,7 @@ for _, waypoint in enumerate(waypoints):
 
         # get position by calling state
         cur_position = client.simGetVehiclePose().position.to_numpy_array()
-        print(cur_position)
+        # print(cur_position)
 
         # compare them 
         err3.append(p_check-cur_position)
@@ -195,16 +195,14 @@ for _, waypoint in enumerate(waypoints):
         q_cov[3:6, 3:6] = dt**2 * np.eye(3)*var_imu_w
         p_cov_check = f_jac @ p_cov @ f_jac.T + l_jac @ q_cov @ l_jac.T
 
-        # Fetch IMU sensors data
-        imu_data = client.getImuData()
-
         # Update states (save)
         p_est = p_check
         v_est = v_check
         q_est = q_check
         p_cov = p_cov_check
-        
-      
+
+        # Fetch IMU sensors data
+        imu_data = client.getImuData()
         imu_f = imu_data.linear_acceleration.to_numpy_array()
         imu_w = imu_data.angular_velocity.to_numpy_array()
        
@@ -277,7 +275,19 @@ results.append({
     "GyroBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['GyroBiasStability'],
     "VelocityRandomWalk": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['VelocityRandomWalk'],
     "AccelBiasStabilityTau": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStabilityTau'],
-    "AccelBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStability']
+    "AccelBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStability'],
+    "EphTimeConstant": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphTimeConstant'],
+    "EpvTimeConstant": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EpvTimeConstant'],
+    "EphInitial": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphInitial'],
+    "EpvInitial": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EpvInitial'],
+    "EphFinal": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphFinal'],
+    "EpvFinal": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EpvFinal'],
+    "EphMin3d": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphMin3d'],
+    "EphMin2d": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphMin2d'],
+    "UpdateLatency": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['UpdateLatency'],
+    "UpdateFrequency": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['UpdateFrequency'],
+    "StartupDelay": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['StartupDelay']
+    
 })
 
 # Extracting X, Y, Z coordinates
@@ -357,17 +367,19 @@ plt.title('Error in Altitude')
 plt.legend()
 plt.savefig(os.path.join(results_dir, 'Error_vs_Time.png'))
 
-# Plotting
+
 plt.figure(figsize=(10, 6))
-plt.plot(times, err3[:, 0], label='X Difference')
-plt.plot(times, err3[:, 1], label='Y Difference')
-plt.plot(times, err3[:, 2], label='Z Difference')
-plt.title('Newton law estimtes vs AirSim Position Differences Over Time')
+X_diff = [item[0] for item in err3]
+Y_diff = [item[1] for item in err3]
+plt.plot(times, X_diff, label='X Difference')
+plt.plot(times, Y_diff, label='Y Difference')
+# plt.plot(times, err3[:, 2], label='Z Difference')
+plt.title('Newton law estimtes vs AirSim State Position Differences Over Time')
 plt.xlabel('Time (s)')
 plt.ylabel('Position Difference (meters)')
 plt.legend()
 plt.grid(True)
-plt.show()
+plt.savefig(os.path.join(results_dir, 'error3_only_IMU_NoGPS.png'))
 
 
 df = pd.DataFrame(results)
