@@ -429,7 +429,6 @@ plt.savefig(os.path.join(results_dir, 'Error_vs_Time.png'))
 
 
 plt.figure(figsize=(10, 6))
-# Assuming consistent length and format for err3
 X_diff = [item[0] for item in err3]
 Y_diff = [item[1] for item in err3]
 # Z_diff = [item[2] for item in err3]

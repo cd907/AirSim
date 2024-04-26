@@ -12,6 +12,23 @@ from rotations import skew_symmetric, Quaternion
 def is_close(current, target, threshold=0.1):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
+def measurement_update(sensor_var, p_cov_check, y_k, p_check, v_check, q_check):
+    # 3.1 Compute Kalman Gain
+    r_cov = np.eye(3)*sensor_var
+    k_gain = p_cov_check @ h_jac.T @ np.linalg.inv((h_jac @ p_cov_check @ h_jac.T) + r_cov)
+
+    # 3.2 Compute error state
+    error_state = k_gain @ (y_k - p_check)
+
+    # 3.3 Correct predicted state
+    p_hat = p_check + error_state[0:3]
+    v_hat = v_check + error_state[3:6]
+    q_hat = Quaternion(axis_angle=error_state[6:9]).quat_mult_left(Quaternion(*q_check))
+
+    # 3.4 Compute corrected covariance
+    p_cov_hat = (np.eye(9) - k_gain @ h_jac) @ p_cov_check
+
+    return p_hat, v_hat, q_hat, p_cov_hat
 
 class PIDController:
     def __init__(self, kp_x=1, ki_x=0, kd_x=10, max_output_x=1, kp_y=1, ki_y=0, kd_y=10, max_output_y=1):
@@ -96,8 +113,9 @@ pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0.5, max_output_x=10,
 # # most important aspects of a filter is setting the estimated sensor variances correctly.
 # # We set the values here.
 # ################################################################################################
-var_imu_f = 0.10
-var_imu_w = 0.10
+var_imu_f = 0.001
+var_imu_w = 0.001
+var_gnss  = 0.10
 
 # ################################################################################################
 # # We can also set up some constants that won't change for any iteration of our solver.
@@ -114,7 +132,7 @@ h_jac[:, :3] = np.eye(3)  # measurement model jacobian
 flight_path = []
 # Initialize a list to store position errors
 position_errors = []
-err3 = []
+err1 = []
 
 total_distance = 0
 collision_count = 0
@@ -161,7 +179,6 @@ for _, waypoint in enumerate(waypoints):
         # ################################################################################################
         # 1. Update state with IMU inputs
 
-        # orientation = [imu_data.orientation.x_val, imu_data.orientation.y_val, imu_data.orientation.z_val]
         q_prev = Quaternion(*q_est) # previous orientation as a quaternion object
 
         q_curr = Quaternion(axis_angle=(imu_w*dt)) # current IMU orientation
@@ -172,13 +189,6 @@ for _, waypoint in enumerate(waypoints):
         # use Newton law to update position
         p_check = p_est + dt*v_est + 0.5*(dt**2)*f_ns
         print(p_check)
-
-        # get position by calling state
-        cur_position = client.simGetVehiclePose().position.to_numpy_array()
-        print(cur_position)
-
-        # compare them 
-        err3.append(p_check-cur_position)
 
         v_check = v_est + dt*f_ns
         q_check = q_prev.quat_mult_left(q_curr)
@@ -193,39 +203,18 @@ for _, waypoint in enumerate(waypoints):
         q_cov = np.zeros((6, 6)) # IMU noise covariance
         q_cov[0:3, 0:3] = dt**2 * np.eye(3)*var_imu_f
         q_cov[3:6, 3:6] = dt**2 * np.eye(3)*var_imu_w
-        p_cov_check = f_jac @ p_cov @ f_jac.T + l_jac @ q_cov @ l_jac.T
+        p_cov_check = f_jac @ p_cov @ f_jac.T + l_jac @ q_cov @ l_jac.T    
 
-        # Fetch IMU sensors data
-        imu_data = client.getImuData()
+        # Fetch IMU, GPS sensors data
+        gps_data = client.getGpsData()
 
-        # Update states (save)
-        p_est = p_check
-        v_est = v_check
-        q_est = q_check
-        p_cov = p_cov_check
-        
-      
-        imu_f = imu_data.linear_acceleration.to_numpy_array()
-        imu_w = imu_data.angular_velocity.to_numpy_array()
-       
-
-        # Record IMU, Barometer, GPS sensor data
-        data_entry = {
-            'Time(s)': now - start_time,
-            'Angular Velocity X(rad/s)': imu_data.angular_velocity.x_val,
-            'Angular Velocity Y(rad/s)': imu_data.angular_velocity.y_val,
-            'Angular Velocity Z(rad/s)': imu_data.angular_velocity.z_val,
-            'Linear Acceleration X(ms^-2)': imu_data.linear_acceleration.x_val,
-            'Linear Acceleration Y(ms^-2)': imu_data.linear_acceleration.y_val,
-            'Linear Acceleration Z(ms^-2)': imu_data.linear_acceleration.z_val,
-            'Orientation W': imu_data.orientation.w_val,
-            'Orientation X': imu_data.orientation.x_val,
-            'Orientation Y': imu_data.orientation.y_val,
-            'Orientation Z': imu_data.orientation.z_val
-         
-        }
-
-        sensor_data.append(data_entry)
+        # convert  latitude, longitude to meters
+        lat = gps_data.gnss.geo_point.latitude*np.pi/180*6371000 # unit deg to m
+        lon = gps_data.gnss.geo_point.longitude*np.pi/180*6371000  
+        gnss_data = [lat, lon, gps_data.gnss.geo_point.altitude] 
+        p_check, v_check, q_check, p_cov_check = measurement_update(var_gnss, p_cov_check, gnss_data, p_check, v_check, q_check)
+         # compare them 
+        err1.append(p_check-gnss_data)
 
         # Record position and time
         flight_path.append(( now-start_time, p_check))
@@ -249,6 +238,37 @@ for _, waypoint in enumerate(waypoints):
         if collision_info.has_collided:
             print("Collision detected!")
             collision_count += 1
+
+        # Update states (save)
+        p_est = p_check
+        v_est = v_check
+        q_est = q_check
+        p_cov = p_cov_check
+        
+        # Fetch IMU sensors data
+        imu_data = client.getImuData()
+        imu_f = imu_data.linear_acceleration.to_numpy_array()
+        imu_w = imu_data.angular_velocity.to_numpy_array()
+
+        # Record IMU, Barometer, GPS sensor data
+        data_entry = {
+            'Time(s)': now - start_time,
+            'Angular Velocity X(rad/s)': imu_data.angular_velocity.x_val,
+            'Angular Velocity Y(rad/s)': imu_data.angular_velocity.y_val,
+            'Angular Velocity Z(rad/s)': imu_data.angular_velocity.z_val,
+            'Linear Acceleration X(ms^-2)': imu_data.linear_acceleration.x_val,
+            'Linear Acceleration Y(ms^-2)': imu_data.linear_acceleration.y_val,
+            'Linear Acceleration Z(ms^-2)': imu_data.linear_acceleration.z_val,
+            'Orientation W': imu_data.orientation.w_val,
+            'Orientation X': imu_data.orientation.x_val,
+            'Orientation Y': imu_data.orientation.y_val,
+            'Orientation Z': imu_data.orientation.z_val
+         
+        }
+
+        sensor_data.append(data_entry)
+
+    
         
         # Sleep to avoid excessive sampling
         # time.sleep(0.1)
