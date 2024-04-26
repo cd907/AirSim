@@ -180,6 +180,23 @@ for _, waypoint in enumerate(waypoints):
         # compare them 
         err3.append(p_check-cur_position)
 
+        # Record position and time
+        flight_path.append(( now-start_time, p_check))
+        position_errors.append((waypoint.x_val - p_check[0], waypoint.y_val - p_check[1], waypoint.z_val + p_check[2]))
+
+
+        # use PID Control logic moving to the next waypoint asynchronously
+        # Calculate position error in X-Y plane
+        error_x = waypoint.x_val - p_check[0]
+        error_y = waypoint.y_val - p_check[1]
+
+        # Update PID controls for X and Y simultaneously
+        control_x, control_y = pid_controller.update_controls(error_x, error_y, dt)
+
+        # Apply controls
+        client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt)
+        
+
         v_check = v_est + dt*f_ns
         q_check = q_prev.quat_mult_left(q_curr)
 
@@ -194,6 +211,15 @@ for _, waypoint in enumerate(waypoints):
         q_cov[0:3, 0:3] = dt**2 * np.eye(3)*var_imu_f
         q_cov[3:6, 3:6] = dt**2 * np.eye(3)*var_imu_w
         p_cov_check = f_jac @ p_cov @ f_jac.T + l_jac @ q_cov @ l_jac.T
+
+        
+
+        # Check for collision
+        collision_info = client.simGetCollisionInfo()
+
+        if collision_info.has_collided:
+            print("Collision detected!")
+            collision_count += 1
 
         # Update states (save)
         p_est = p_check
@@ -225,28 +251,7 @@ for _, waypoint in enumerate(waypoints):
 
         sensor_data.append(data_entry)
 
-        # Record position and time
-        flight_path.append(( now-start_time, p_check))
-        position_errors.append((waypoint.x_val - p_check[0], waypoint.y_val - p_check[1], waypoint.z_val + p_check[2]))
-
-
-        # use PID Control logic moving to the next waypoint asynchronously
-        # Calculate position error in X-Y plane
-        error_x = waypoint.x_val - p_check[0]
-        error_y = waypoint.y_val - p_check[1]
-
-        # Update PID controls for X and Y simultaneously
-        control_x, control_y = pid_controller.update_controls(error_x, error_y, dt)
-
-        # Apply controls
-        client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt)
-
-        # Check for collision
-        collision_info = client.simGetCollisionInfo()
-
-        if collision_info.has_collided:
-            print("Collision detected!")
-            collision_count += 1
+        
         
         # Sleep to avoid excessive sampling
         # time.sleep(0.1)

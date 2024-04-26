@@ -262,7 +262,10 @@ for _, waypoint in enumerate(waypoints):
             'Orientation W': imu_data.orientation.w_val,
             'Orientation X': imu_data.orientation.x_val,
             'Orientation Y': imu_data.orientation.y_val,
-            'Orientation Z': imu_data.orientation.z_val
+            'Orientation Z': imu_data.orientation.z_val,
+            'GPS Latitude(deg)': gps_data.gnss.geo_point.latitude,
+            'GPS Longitude(deg)': gps_data.gnss.geo_point.longitude,
+            'GPS Altitude(m)': gps_data.gnss.geo_point.altitude
          
         }
 
@@ -297,7 +300,19 @@ results.append({
     "GyroBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['GyroBiasStability'],
     "VelocityRandomWalk": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['VelocityRandomWalk'],
     "AccelBiasStabilityTau": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStabilityTau'],
-    "AccelBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStability']
+    "AccelBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStability'],
+    "EphTimeConstant": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphTimeConstant'],
+    "EpvTimeConstant": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EpvTimeConstant'],
+    "EphInitial": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphInitial'],
+    "EpvInitial": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EpvInitial'],
+    "EphFinal": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphFinal'],
+    "EpvFinal": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EpvFinal'],
+    "EphMin3d": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphMin3d'],
+    "EphMin2d": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphMin2d'],
+    "UpdateLatency": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['UpdateLatency'],
+    "UpdateFrequency": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['UpdateFrequency'],
+    "StartupDelay": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['StartupDelay']
+    
 })
 
 # Extracting X, Y, Z coordinates
@@ -377,17 +392,19 @@ plt.title('Error in Altitude')
 plt.legend()
 plt.savefig(os.path.join(results_dir, 'Error_vs_Time.png'))
 
-# Plotting
+
 plt.figure(figsize=(10, 6))
-plt.plot(times, err3[:, 0], label='X Difference')
-plt.plot(times, err3[:, 1], label='Y Difference')
-plt.plot(times, err3[:, 2], label='Z Difference')
-plt.title('Newton law estimtes vs AirSim Position Differences Over Time')
+X_diff = [item[0] for item in err1]
+Y_diff = [item[1] for item in err1]
+
+plt.plot(times, X_diff, label='X Difference')
+plt.plot(times, Y_diff, label='Y Difference')
+plt.title('Newton law estimates vs GPS observation Differences Over Time')
 plt.xlabel('Time (s)')
 plt.ylabel('Position Difference (meters)')
 plt.legend()
 plt.grid(True)
-plt.show()
+plt.savefig(os.path.join(results_dir, 'error1.png'))
 
 
 df = pd.DataFrame(results)
