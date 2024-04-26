@@ -12,29 +12,6 @@ from rotations import skew_symmetric, Quaternion
 def is_close(current, target, threshold=0.1):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
-# #### Measurement Update #####################################################################
-
-# ################################################################################################
-# # Since we'll need a measurement update for the GNSS data, let's make
-# # a function for it.
-# ################################################################################################
-def measurement_update(sensor_var, p_cov_check, y_k, p_check, v_check, q_check):
-    # 3.1 Compute Kalman Gain
-    r_cov = np.eye(3)*sensor_var
-    k_gain = p_cov_check @ h_jac.T @ np.linalg.inv((h_jac @ p_cov_check @ h_jac.T) + r_cov)
-
-    # 3.2 Compute error state
-    error_state = k_gain @ (y_k - p_check)
-
-    # 3.3 Correct predicted state
-    p_hat = p_check + error_state[0:3]
-    v_hat = v_check + error_state[3:6]
-    q_hat = Quaternion(axis_angle=error_state[6:9]).quat_mult_left(Quaternion(*q_check))
-
-    # 3.4 Compute corrected covariance
-    p_cov_hat = (np.eye(9) - k_gain @ h_jac) @ p_cov_check
-
-    return p_hat, v_hat, q_hat, p_cov_hat
 
 class PIDController:
     def __init__(self, kp_x=1, ki_x=0, kd_x=10, max_output_x=1, kp_y=1, ki_y=0, kd_y=10, max_output_y=1):
@@ -121,7 +98,6 @@ pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0.5, max_output_x=10,
 # ################################################################################################
 var_imu_f = 0.10
 var_imu_w = 0.10
-var_gnss  = 0.10
 
 # ################################################################################################
 # # We can also set up some constants that won't change for any iteration of our solver.
@@ -138,7 +114,7 @@ h_jac[:, :3] = np.eye(3)  # measurement model jacobian
 flight_path = []
 # Initialize a list to store position errors
 position_errors = []
-err3=[]
+err3 = []
 
 total_distance = 0
 collision_count = 0
@@ -153,16 +129,6 @@ client.armDisarm(True)
 # Takeoff
 client.takeoffAsync().join()
 
-# #### EKF Initial Values #########################################################################
-
-# ################################################################################################
-# # Let's set up some initial values for our ES-EKF solver.
-# ################################################################################################
-# p_est = []  # position estimates
-# v_est = []  # velocity estimates
-# q_est = []  # orientation estimates as quaternions
-# p_cov = []  # covariance matrices at each timestep
-
 # Get current state as position and orientation
 state = client.getMultirotorState() # only call state variable here once for initial use
 
@@ -174,7 +140,6 @@ q_est = Quaternion(euler=np.array([orientation.x_val, orientation.y_val, orienta
 imu_w = state.kinematics_estimated.angular_velocity.to_numpy_array() # initial Angular Velocity estimates
 imu_f = state.kinematics_estimated.linear_acceleration.to_numpy_array() # initial linear acceleration estimates
 p_cov = np.zeros(9)  # covariance of estimate, 9*9 matrix
-# print(imu_f)
 
 for _, waypoint in enumerate(waypoints):
 
@@ -198,24 +163,21 @@ for _, waypoint in enumerate(waypoints):
 
         # orientation = [imu_data.orientation.x_val, imu_data.orientation.y_val, imu_data.orientation.z_val]
         q_prev = Quaternion(*q_est) # previous orientation as a quaternion object
-        # q_prev = Quaternion(euler=orientation).to_numpy() # previous orientation as a quaternion object, unpack the elements of the array q_est[k - 1, :] as arguments to the Quaternion class constructor.
-        
-        # angle_rate = np.array([imu_data.angular_velocity.x_val, imu_data.angular_velocity.y_val, imu_data.angular_velocity.z_val])
 
         q_curr = Quaternion(axis_angle=(imu_w*dt)) # current IMU orientation
         c_ns = q_prev.to_mat() # previous orientation as a matrix, 3*3 matrix
 
-        # acceleration = [imu_data.linear_acceleration.x_val, imu_data.linear_acceleration.y_val, imu_data.linear_acceleration.z_val]
-
+        
         f_ns = (c_ns @ imu_f) + g # calculate sum of forces, g needs to be +9.81
+        # use Newton law to update position
         p_check = p_est + dt*v_est + 0.5*(dt**2)*f_ns
-        # print(f"Updated Position before: {p_check}")
+        print(p_check)
 
         # get position by calling state
         cur_position = client.simGetVehiclePose().position.to_numpy_array()
-        # print(cur_position)
+        print(cur_position)
 
-        # compare the NL estimate(p_check) with AirSim state variables, the error in Z direction is wrong!
+        # compare them 
         err3.append(p_check-cur_position)
 
         v_check = v_est + dt*f_ns
@@ -233,37 +195,19 @@ for _, waypoint in enumerate(waypoints):
         q_cov[3:6, 3:6] = dt**2 * np.eye(3)*var_imu_w
         p_cov_check = f_jac @ p_cov @ f_jac.T + l_jac @ q_cov @ l_jac.T
 
-        ####### 3. EKF filter fuse GNSS measurements with model predictions
-        ##################################################################
-
-        # Fetch IMU, GPS sensors data
-        gps_data = client.getGpsData()
-
-        # convert  latitude, longitude to meters
-        lat = gps_data.gnss.geo_point.latitude*np.pi/180*6371000 # unit deg to m
-        lon = gps_data.gnss.geo_point.longitude*np.pi/180*6371000  
-        gnss_data = [lat, lon, gps_data.gnss.geo_point.altitude] 
-        p_check, v_check, q_check, p_cov_check = measurement_update(var_gnss, p_cov_check, gnss_data, p_check, v_check, q_check)
-
-        # Print out the updated states and covariance matrix
-        # print(f"Updated Position after: {p_check}")
-        # print(f"Updated Velocity: {v_check}")
-        # print(f"Updated Quaternion: {q_check}")  # Assuming q_check is a Quaternion object
-        # # print(f"Updated Covariance Matrix:\n{p_cov_check}")
+        # Fetch IMU sensors data
+        imu_data = client.getImuData()
 
         # Update states (save)
         p_est = p_check
         v_est = v_check
         q_est = q_check
         p_cov = p_cov_check
-
-        # imu_f = np.array([imu_data.linear_acceleration.x_val, imu_data.linear_acceleration.y_val, imu_data.linear_acceleration.z_val])
-        # imu_w = np.array([imu_data.angular_velocity.x_val, imu_data.angular_velocity.y_val, imu_data.angular_velocity.z_val])
-        imu_data = client.getImuData()
+        
+      
         imu_f = imu_data.linear_acceleration.to_numpy_array()
         imu_w = imu_data.angular_velocity.to_numpy_array()
-        print(f"Updated imu_f: {imu_f}")
-        print(f"Updated imu_w: {imu_w}")
+       
 
         # Record IMU, Barometer, GPS sensor data
         data_entry = {
@@ -277,10 +221,8 @@ for _, waypoint in enumerate(waypoints):
             'Orientation W': imu_data.orientation.w_val,
             'Orientation X': imu_data.orientation.x_val,
             'Orientation Y': imu_data.orientation.y_val,
-            'Orientation Z': imu_data.orientation.z_val,
-            'GPS Latitude(deg)': gps_data.gnss.geo_point.latitude,
-            'GPS Longitude(deg)': gps_data.gnss.geo_point.longitude,
-            'GPS Altitude(m)': gps_data.gnss.geo_point.altitude
+            'Orientation Z': imu_data.orientation.z_val
+         
         }
 
         sensor_data.append(data_entry)
@@ -335,19 +277,7 @@ results.append({
     "GyroBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['GyroBiasStability'],
     "VelocityRandomWalk": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['VelocityRandomWalk'],
     "AccelBiasStabilityTau": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStabilityTau'],
-    "AccelBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStability'],
-    "EphTimeConstant": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphTimeConstant'],
-    "EpvTimeConstant": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EpvTimeConstant'],
-    "EphInitial": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphInitial'],
-    "EpvInitial": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EpvInitial'],
-    "EphFinal": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphFinal'],
-    "EpvFinal": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EpvFinal'],
-    "EphMin3d": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphMin3d'],
-    "EphMin2d": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['EphMin2d'],
-    "UpdateLatency": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['UpdateLatency'],
-    "UpdateFrequency": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['UpdateFrequency'],
-    "StartupDelay": settings['Vehicles']['Drone1']["Sensors"]["Gps"]['StartupDelay']
-    
+    "AccelBiasStability": settings['Vehicles']['Drone1']["Sensors"]["Imu"]['AccelBiasStability']
 })
 
 # Extracting X, Y, Z coordinates
@@ -427,22 +357,17 @@ plt.title('Error in Altitude')
 plt.legend()
 plt.savefig(os.path.join(results_dir, 'Error_vs_Time.png'))
 
-
+# Plotting
 plt.figure(figsize=(10, 6))
-# Assuming consistent length and format for err3
-X_diff = [item[0] for item in err3]
-Y_diff = [item[1] for item in err3]
-# Z_diff = [item[2] for item in err3]
-
-plt.plot(times, X_diff, label='X Difference')
-plt.plot(times, Y_diff, label='Y Difference')
-# plt.plot(times, Z_diff, label='Z Difference')
-plt.title('Newton law estimtes vs AirSim State Position Differences Over Time')
+plt.plot(times, err3[:, 0], label='X Difference')
+plt.plot(times, err3[:, 1], label='Y Difference')
+plt.plot(times, err3[:, 2], label='Z Difference')
+plt.title('Newton law estimtes vs AirSim Position Differences Over Time')
 plt.xlabel('Time (s)')
 plt.ylabel('Position Difference (meters)')
 plt.legend()
 plt.grid(True)
-plt.savefig(os.path.join(results_dir, 'error3.png'))
+plt.show()
 
 
 df = pd.DataFrame(results)
