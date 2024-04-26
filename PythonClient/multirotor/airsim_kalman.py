@@ -119,9 +119,9 @@ pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0.5, max_output_x=10,
 # # most important aspects of a filter is setting the estimated sensor variances correctly.
 # # We set the values here.
 # ################################################################################################
-var_imu_f = 0.10
-var_imu_w = 0.10
-var_gnss  = 0.10
+var_imu_f = 0.010
+var_imu_w = 0.010
+var_gnss  = 0.010
 
 # ################################################################################################
 # # We can also set up some constants that won't change for any iteration of our solver.
@@ -209,7 +209,7 @@ for _, waypoint in enumerate(waypoints):
 
         f_ns = (c_ns @ imu_f) + g # calculate sum of forces, g needs to be +9.81
         p_check = p_est + dt*v_est + 0.5*(dt**2)*f_ns
-        # print(f"Updated Position before: {p_check}")
+        print(f"Updated Position before: {p_check}")
 
         # get position by calling state
         cur_position = client.simGetVehiclePose().position.to_numpy_array()
@@ -262,8 +262,8 @@ for _, waypoint in enumerate(waypoints):
         imu_data = client.getImuData()
         imu_f = imu_data.linear_acceleration.to_numpy_array()
         imu_w = imu_data.angular_velocity.to_numpy_array()
-        print(f"Updated imu_f: {imu_f}")
-        print(f"Updated imu_w: {imu_w}")
+        # print(f"Updated imu_f: {imu_f}")
+        # print(f"Updated imu_w: {imu_w}")
 
         # Record IMU, Barometer, GPS sensor data
         data_entry = {
