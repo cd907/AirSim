@@ -135,7 +135,6 @@ position_errors = []
 err1 = []
 
 total_distance = 0
-collision_count = 0
 start_time = time.time()
 
 # Connect to the AirSim simulator
@@ -216,6 +215,12 @@ for _, waypoint in enumerate(waypoints):
          # compare them 
         err1.append(p_check-gnss_data)
 
+        # Update states (save)
+        p_est = p_check
+        v_est = v_check
+        q_est = q_check
+        p_cov = p_cov_check
+
         # Record position and time
         flight_path.append(( now-start_time, p_check))
         position_errors.append((waypoint.x_val - p_check[0], waypoint.y_val - p_check[1], waypoint.z_val + p_check[2]))
@@ -231,19 +236,6 @@ for _, waypoint in enumerate(waypoints):
 
         # Apply controls
         client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt)
-
-        # Check for collision
-        collision_info = client.simGetCollisionInfo()
-
-        if collision_info.has_collided:
-            print("Collision detected!")
-            collision_count += 1
-
-        # Update states (save)
-        p_est = p_check
-        v_est = v_check
-        q_est = q_check
-        p_cov = p_cov_check
         
         # Fetch IMU sensors data
         imu_data = client.getImuData()
@@ -286,7 +278,6 @@ total_time = time.time() - start_time
 results.append({
     # 'Total Distance Traveled (m)': total_distance,
     'Total Flight Time (s)': total_time,
-    'Collision Count': collision_count,
     'PID X kp_val': pid_controller.kp_x,  
     'PID X ki_val': pid_controller.ki_x,  
     'PID X kd_val': pid_controller.kd_x,  
