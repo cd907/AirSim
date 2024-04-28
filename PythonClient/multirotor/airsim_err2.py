@@ -12,23 +12,6 @@ from rotations import skew_symmetric, Quaternion
 def is_close(current, target, threshold=0.1):
     return np.linalg.norm(np.array([current.x_val - target.x_val, current.y_val - target.y_val, current.z_val - target.z_val])) < threshold
 
-def measurement_update(sensor_var, p_cov_check, y_k, p_check, v_check, q_check):
-    # 3.1 Compute Kalman Gain
-    r_cov = np.eye(3)*sensor_var
-    k_gain = p_cov_check @ h_jac.T @ np.linalg.inv((h_jac @ p_cov_check @ h_jac.T) + r_cov)
-
-    # 3.2 Compute error state
-    error_state = k_gain @ (y_k - p_check)
-
-    # 3.3 Correct predicted state
-    p_hat = p_check + error_state[0:3]
-    v_hat = v_check + error_state[3:6]
-    q_hat = Quaternion(axis_angle=error_state[6:9]).quat_mult_left(Quaternion(*q_check))
-
-    # 3.4 Compute corrected covariance
-    p_cov_hat = (np.eye(9) - k_gain @ h_jac) @ p_cov_check
-
-    return p_hat, v_hat, q_hat, p_cov_hat
 
 class PIDController:
     def __init__(self, kp_x=1, ki_x=0, kd_x=10, max_output_x=1, kp_y=1, ki_y=0, kd_y=10, max_output_y=1):
@@ -113,9 +96,8 @@ pid_controller = PIDController(kp_x=0.5, ki_x=0, kd_x=0.5, max_output_x=10,
 # # most important aspects of a filter is setting the estimated sensor variances correctly.
 # # We set the values here.
 # ################################################################################################
-var_imu_f = 0.001
-var_imu_w = 0.001
-var_gnss  = 0.10
+var_imu_f = 0.1
+var_imu_w = 0.1
 
 # ################################################################################################
 # # We can also set up some constants that won't change for any iteration of our solver.
@@ -132,9 +114,10 @@ h_jac[:, :3] = np.eye(3)  # measurement model jacobian
 flight_path = []
 # Initialize a list to store position errors
 position_errors = []
-err1 = []
+err2 = []
 
 total_distance = 0
+collision_count = 0
 start_time = time.time()
 
 # Connect to the AirSim simulator
@@ -178,6 +161,7 @@ for _, waypoint in enumerate(waypoints):
         # ################################################################################################
         # 1. Update state with IMU inputs
 
+        # orientation = [imu_data.orientation.x_val, imu_data.orientation.y_val, imu_data.orientation.z_val]
         q_prev = Quaternion(*q_est) # previous orientation as a quaternion object
 
         q_curr = Quaternion(axis_angle=(imu_w*dt)) # current IMU orientation
@@ -185,44 +169,9 @@ for _, waypoint in enumerate(waypoints):
 
         
         f_ns = (c_ns @ imu_f) + g # calculate sum of forces, g needs to be +9.81
-        print(f"acceralation is {f_ns}")
-        print(f"acceralation matrix is {c_ns @ imu_f}")
-
         # use Newton law to update position
         p_check = p_est + dt*v_est + 0.5*(dt**2)*f_ns
         print(p_check)
-
-        v_check = v_est + dt*f_ns
-        q_check = q_prev.quat_mult_left(q_curr)
-
-        # 1.1 Linearize the motion model and compute Jacobians
-        f_jac = np.eye(9) # motion model jacobian with respect to last state, 9x9 identity matrix
-        f_jac[0:3, 3:6] = np.eye(3)*dt # modifies the block from rows 0 to 2 and columns 3 to 5 of the f_jac matrix, part of the Jacobian represents the partial derivatives of the position states with respect to velocity states, 
-        # assuming a basic kinematic model where position p is updated as p = p + v * dt
-        f_jac[3:6, 6:9] = -skew_symmetric(c_ns @ imu_f.reshape(3,1))*dt # specifically for the velocity updates
-
-        # 2. Propagate uncertainty
-        q_cov = np.zeros((6, 6)) # IMU noise covariance
-        q_cov[0:3, 0:3] = dt**2 * np.eye(3)*var_imu_f
-        q_cov[3:6, 3:6] = dt**2 * np.eye(3)*var_imu_w
-        p_cov_check = f_jac @ p_cov @ f_jac.T + l_jac @ q_cov @ l_jac.T    
-
-        # Fetch IMU, GPS sensors data
-        gps_data = client.getGpsData()
-
-        # convert  latitude, longitude to meters
-        lat = gps_data.gnss.geo_point.latitude*np.pi/180*6371000 # unit deg to m
-        lon = gps_data.gnss.geo_point.longitude*np.pi/180*6371000  
-        gnss_data = [lat, lon, gps_data.gnss.geo_point.altitude] 
-        p_check, v_check, q_check, p_cov_check = measurement_update(var_gnss, p_cov_check, gnss_data, p_check, v_check, q_check)
-         # compare them 
-        err1.append(p_check-gnss_data)
-
-        # Update states (save)
-        p_est = p_check
-        v_est = v_check
-        q_est = q_check
-        p_cov = p_cov_check
 
         # Record position and time
         flight_path.append(( now-start_time, p_check))
@@ -240,10 +189,52 @@ for _, waypoint in enumerate(waypoints):
         # Apply controls
         client.moveByVelocityZAsync(vx=control_x, vy=control_y, z=waypoint.z_val, duration=dt)
         
+
+        v_check = v_est + dt*f_ns
+        q_check = q_prev.quat_mult_left(q_curr)
+
+        # 1.1 Linearize the motion model and compute Jacobians
+        f_jac = np.eye(9) # motion model jacobian with respect to last state, 9x9 identity matrix
+        f_jac[0:3, 3:6] = np.eye(3)*dt # modifies the block from rows 0 to 2 and columns 3 to 5 of the f_jac matrix, part of the Jacobian represents the partial derivatives of the position states with respect to velocity states, 
+        # assuming a basic kinematic model where position p is updated as p = p + v * dt
+        f_jac[3:6, 6:9] = -skew_symmetric(c_ns @ imu_f.reshape(3,1))*dt # specifically for the velocity updates
+
+        # 2. Propagate uncertainty
+        q_cov = np.zeros((6, 6)) # IMU noise covariance
+        q_cov[0:3, 0:3] = dt**2 * np.eye(3)*var_imu_f
+        q_cov[3:6, 3:6] = dt**2 * np.eye(3)*var_imu_w
+        p_cov_check = f_jac @ p_cov @ f_jac.T + l_jac @ q_cov @ l_jac.T
+
+        
+
+        # Check for collision
+        collision_info = client.simGetCollisionInfo()
+
+        if collision_info.has_collided:
+            print("Collision detected!")
+            collision_count += 1
+
+        # Update states (save)
+        p_est = p_check
+        v_est = v_check
+        q_est = q_check
+        p_cov = p_cov_check
+
         # Fetch IMU sensors data
         imu_data = client.getImuData()
         imu_f = imu_data.linear_acceleration.to_numpy_array()
         imu_w = imu_data.angular_velocity.to_numpy_array()
+
+        # Fetch GPS sensors data
+        gps_data = client.getGpsData()
+
+        # convert  latitude, longitude to meters
+        lat = gps_data.gnss.geo_point.latitude*np.pi/180*6371000 # unit deg to m
+        lon = gps_data.gnss.geo_point.longitude*np.pi/180*6371000  
+        gnss_data = [lat, lon, gps_data.gnss.geo_point.altitude] 
+       
+           # compare them 
+        err2.append(p_check-gnss_data)
 
         # Record IMU, Barometer, GPS sensor data
         data_entry = {
@@ -257,16 +248,13 @@ for _, waypoint in enumerate(waypoints):
             'Orientation W': imu_data.orientation.w_val,
             'Orientation X': imu_data.orientation.x_val,
             'Orientation Y': imu_data.orientation.y_val,
-            'Orientation Z': imu_data.orientation.z_val,
-            'GPS Latitude(deg)': gps_data.gnss.geo_point.latitude,
-            'GPS Longitude(deg)': gps_data.gnss.geo_point.longitude,
-            'GPS Altitude(m)': gps_data.gnss.geo_point.altitude
+            'Orientation Z': imu_data.orientation.z_val
          
         }
 
         sensor_data.append(data_entry)
 
-    
+        
         
         # Sleep to avoid excessive sampling
         # time.sleep(0.1)
@@ -281,6 +269,7 @@ total_time = time.time() - start_time
 results.append({
     # 'Total Distance Traveled (m)': total_distance,
     'Total Flight Time (s)': total_time,
+    'Collision Count': collision_count,
     'PID X kp_val': pid_controller.kp_x,  
     'PID X ki_val': pid_controller.ki_x,  
     'PID X kd_val': pid_controller.kd_x,  
@@ -388,17 +377,17 @@ plt.savefig(os.path.join(results_dir, 'Error_vs_Time.png'))
 
 
 plt.figure(figsize=(10, 6))
-X_diff = [item[0] for item in err1]
-Y_diff = [item[1] for item in err1]
-
+X_diff = [item[0] for item in err2]
+Y_diff = [item[1] for item in err2]
 plt.plot(times, X_diff, label='X Difference')
 plt.plot(times, Y_diff, label='Y Difference')
-plt.title('EKF estimates vs GPS observation Differences Over Time')
+# plt.plot(times, err3[:, 2], label='Z Difference')
+plt.title('Newton law estimtes vs GPS observation Position Differences Over Time')
 plt.xlabel('Time (s)')
 plt.ylabel('Position Difference (meters)')
 plt.legend()
 plt.grid(True)
-plt.savefig(os.path.join(results_dir, 'error1.png'))
+plt.savefig(os.path.join(results_dir, 'error2.png'))
 
 
 df = pd.DataFrame(results)
