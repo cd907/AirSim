@@ -185,6 +185,9 @@ for _, waypoint in enumerate(waypoints):
 
         
         f_ns = (c_ns @ imu_f) + g # calculate sum of forces, g needs to be +9.81
+        print(f"acceralation is {f_ns}")
+        print(f"acceralation matrix is {c_ns @ imu_f}")
+        
         # use Newton law to update position
         p_check = p_est + dt*v_est + 0.5*(dt**2)*f_ns
         print(p_check)
